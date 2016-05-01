@@ -15,6 +15,5 @@ for n = 1:size(file,1)
     set(get(gca,'YLabel'),'String','Energy Consumption/kWh')
     lh = legend('Maintain','React');
     set(lh,'Location','SouthEast','Orientation','vertical')
-    colormap(summer)
-    
+    colormap(summer) 
 end
