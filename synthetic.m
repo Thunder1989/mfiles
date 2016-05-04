@@ -1,5 +1,5 @@
 %% synthetic experiments for lassso-based clustering
-% clear
+clear
 clc
 k = 5; %# of clusters
 d = 50; %dimension
@@ -19,9 +19,9 @@ A = A/norm(A) * alpha;
 
 %generate Sigma
 tmp = zeros(d,d);
-tmp(:) = 0.1; %set to 0.1 for all
-% Sigma = eye(d) + tmp-diag(diag(tmp));
-Sigma = eye(d);
+tmp(:) = 0.1; %set all to 0.1
+Sigma = eye(d) + tmp-diag(diag(tmp));
+% Sigma = eye(d);
 Sigma = Sigma/norm(Sigma);
 
 %get Psi
@@ -43,22 +43,11 @@ tmp = (1:k)';
 tmp = repmat(tmp,1,d/k);
 gt = reshape(tmp',1,[]); %ground truth cluster id
 
-% %normalization
-% for i = 1:d
-%     tmp = X(:,i);
-% %     t_min = min(tmp);
-% %     t_max = max(tmp);
-% %     data(i,:) = (tmp-t_min) / (t_max-t_min);
-%     mu = mean(tmp);
-%     sigma = std(tmp);
-%     X(:,i) = (tmp-mu) / sigma;
-% end
-
 w = zeros(d,d); %regression coefficient matrix
 X_S = X(1:T-1,:);
 X_T = X(2:T,:);
 for b = 0.1:0.02:0.1
-    b = 0.15;
+    b = 0.04;
     for i = 1:d
         cur = X_T(:,i); %i-th sample, T by 1
         src = X_S;
