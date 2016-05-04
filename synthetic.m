@@ -7,9 +7,9 @@ T = 100; %sample size
 X = zeros(T,d); %input data
 
 %generate A - block diagonal
-p = 0.5; %bernouli probability
+p = 0.8; %bernouli probability
 A_ = cell(k,1); 
-for i=1:numel(A_)
+for i = 1:numel(A_)
     A_{i} = binornd(1,p,d/k,d/k); %equal-sized cluster
 end
 A = blkdiag(A_{:});
@@ -20,8 +20,8 @@ A = A/norm(A) * alpha;
 %generate Sigma
 tmp = zeros(d,d);
 tmp(:) = 0.1; %set all to 0.1
-Sigma = eye(d) + tmp-diag(diag(tmp));
-% Sigma = eye(d);
+% Sigma = eye(d) + tmp-diag(diag(tmp));
+Sigma = eye(d);
 Sigma = Sigma/norm(Sigma);
 
 %get Psi
@@ -47,11 +47,11 @@ w = zeros(d,d); %regression coefficient matrix
 X_S = X(1:T-1,:);
 X_T = X(2:T,:);
 for b = 0.1:0.02:0.1
-    b = 0.04;
+    b = 0.06;
     for i = 1:d
-        cur = X_T(:,i); %i-th sample, T by 1
+        cur = X_T(:,i); %i-th sample, T?1 by 1
         src = X_S;
-        src(:,i) = []; %all other samples, T by d-1
+        src(:,i) = []; %all other samples, T?1 by d-1
         % 0.015~0.03 for max-min normalization, 0.06 gives no zero rows
         % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all resonable
         coef = lasso(src, cur, 'Lambda', b); %N-1 by 1
