@@ -13,6 +13,7 @@ for i = 1:numel(A_)
     A_{i} = binornd(1,p,d/k,d/k); %equal-sized cluster
 end
 A = blkdiag(A_{:});
+A = eye(d) + A-diag(diag(A));
 %rescale by 2norm
 alpha = 0.5;
 A = A/norm(A) * alpha;
@@ -20,8 +21,8 @@ A = A/norm(A) * alpha;
 %generate Sigma
 tmp = zeros(d,d);
 tmp(:) = 0.1; %set all to 0.1
-% Sigma = eye(d) + tmp-diag(diag(tmp));
-Sigma = eye(d);
+Sigma = eye(d) + tmp-diag(diag(tmp));
+% Sigma = eye(d);
 Sigma = Sigma/norm(Sigma);
 
 %get Psi
@@ -35,7 +36,7 @@ mu = zeros(1,d);
 X1 = mvnrnd(mu, Sigma);
 X(1,:) = X1;
 for i = 2:T
-    X(i,:) = (A*X(i-1,:)' + Z(i,:)')';
+    X(i,:) = A*X(i-1,:)' + Z(i,:)';
 end
 
 %% lasso based clustering
@@ -49,12 +50,12 @@ X_T = X(2:T,:);
 for b = 0.1:0.02:0.1
     b = 0.06;
     for i = 1:d
-        cur = X_T(:,i); %i-th sample, T?1 by 1
+        cur = X_T(:,i); %i-th sample, T-1 by 1
         src = X_S;
-        src(:,i) = []; %all other samples, T?1 by d-1
+        src(:,i) = []; %all other samples, T-1 by d-1
         % 0.015~0.03 for max-min normalization, 0.06 gives no zero rows
-        % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all resonable
-        coef = lasso(src, cur, 'Lambda', b); %N-1 by 1
+        % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all reasonable
+        coef = lasso(src, cur, 'Lambda', b); %d-1 by 1
         idx = 1;
         for j = 1:length(coef)
             if(idx==i) 
@@ -73,7 +74,7 @@ for b = 0.1:0.02:0.1
 %     fprintf('all zero rows found!\n');
 %     pause
     l = D - w_; %unormalized Laplacian
-    [evc, evl] = eig(l); %N by N, each column in evc is an eigenvector
+    [evc, evl] = eig(l); %each column of evc is an eigenvector
     idx = find(diag(evl)>0);
     input = evc(:,idx(1:k));
     c_idx = kmeans(input,k,'Distance','cosine');
