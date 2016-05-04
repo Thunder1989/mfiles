@@ -20,7 +20,8 @@ A = A/norm(A) * alpha;
 %generate Sigma
 tmp = zeros(d,d);
 tmp(:) = 0.1; %set to 0.1 for all
-Sigma = eye(d) + tmp-diag(diag(tmp));
+% Sigma = eye(d) + tmp-diag(diag(tmp));
+Sigma = eye(d);
 Sigma = Sigma/norm(Sigma);
 
 %get Psi
@@ -54,11 +55,13 @@ gt = reshape(tmp',1,[]); %ground truth cluster id
 % end
 
 w = zeros(d,d); %regression coefficient matrix
+X_S = X(1:T-1,:);
+X_T = X(2:T,:);
 for b = 0.1:0.02:0.1
-    b = 0.04;
+    b = 0.15;
     for i = 1:d
-        cur = X(:,i); %i-th sample, T by 1
-        src = X;
+        cur = X_T(:,i); %i-th sample, T by 1
+        src = X_S;
         src(:,i) = []; %all other samples, T by d-1
         % 0.015~0.03 for max-min normalization, 0.06 gives no zero rows
         % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all resonable
