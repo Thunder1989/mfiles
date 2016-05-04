@@ -136,11 +136,11 @@ for n = 4:roomNum
 end
 fprintf('data processing done!\n');
 
-%% causal correlation (L1 Lasso) and spectral clustering (PCA + kmeans)
+%% normalization
 data = input_data;
 data(4:5:end,:) = []; %remove pir since mostly are zeros
 sensorNum = size(data,1); % N stream
-% normalization
+
 for i = 1:sensorNum
     tmp = data(i,:);
 %     t_min = min(tmp);
@@ -152,19 +152,19 @@ for i = 1:sensorNum
 end
 fprintf('normalization done!\n');
 
-%%
+%% spectral clustering method
 clc
 w = zeros(sensorNum, sensorNum);
 fprintf('lasso computing started...\n');
 res = [];
-% for b = 0.015:0.005:0.015
-    b = 0.14;
+for b = 0.02:0.02:0.02
+%     b = 0.14;
     for i = 1:sensorNum
         cur = data(i,:); %1 by d
         src = data;
         src(i,:) = []; %N-1 by d
         % 0.015~0.03 for max-min normalization, 0.06 gives no zero rows
-        % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows
+        % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all resonable
         coef = lasso(src', cur', 'Lambda', b); %N-1 by 1
         idx = 1;
         for j=1:length(coef)
@@ -179,29 +179,30 @@ res = [];
 % fprintf('lasso computing done!\n');
 
     [g_, idx] = sort(gt_type); %ground truth indexing
-    w_ = w(idx,idx); %re-ordered
-    w_ = max(w_, w_'); %symmetric N by N
+    w_ = w(idx,idx); %re-ordered by true type ID
+    w_ = max(w_, w_'); %symmetrize N by N
     d = diag(sum(w_,2));
-    find(diag(d)==0)
-    fprintf('all zero rows found!\n');
-    pause
-    l = d - w_;
-    [evc, evl] = eig(l); %N by N, each column is a principal component
+%     find(diag(d)==0)
+%     fprintf('all zero rows found!\n');
+%     pause
+    l = d - w_; %unormalized Laplacian
+    [evc, evl] = eig(l); %N by N, each column in evc is an eigenvector
     idx = find(diag(evl)>0);
     input = evc(:,idx(1:4));
     c_idx = kmeans(input,4,'Distance','cosine');
-    adjrand(c_idx, g_)
+%     adjrand(c_idx, g_)
 %     figure
 %     spy(w_)
-%     res = [res adjrand(c_idx, g_)];
-% end
+    res = [res adjrand(c_idx, g_)];
+end
+fprintf('lasso-based spectral clustering done...\n');
 % figure
 % plot(0.015:0.005:0.015, res)
 
 %% baseline w
 data = input_data;
 data(4:5:end,:) = []; %remove pir since mostly are zeros
-sensorNum = size(data,1); % N stream
+sensorNum = size(data,1); % N stream, each row is a stream
 % normalization
 for i = 1:sensorNum
     tmp = data(i,:);
