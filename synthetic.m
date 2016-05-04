@@ -42,20 +42,20 @@ tmp = (1:k)';
 tmp = repmat(tmp,1,d/k);
 gt = reshape(tmp',1,[]); %ground truth cluster id
 
-%normalization
-for i = 1:d
-    tmp = X(:,i);
-%     t_min = min(tmp);
-%     t_max = max(tmp);
-%     data(i,:) = (tmp-t_min) / (t_max-t_min);
-    mu = mean(tmp);
-    sigma = std(tmp);
-    X(:,i) = (tmp-mu) / sigma;
-end
+% %normalization
+% for i = 1:d
+%     tmp = X(:,i);
+% %     t_min = min(tmp);
+% %     t_max = max(tmp);
+% %     data(i,:) = (tmp-t_min) / (t_max-t_min);
+%     mu = mean(tmp);
+%     sigma = std(tmp);
+%     X(:,i) = (tmp-mu) / sigma;
+% end
 
 w = zeros(d,d); %regression coefficient matrix
 for b = 0.1:0.02:0.1
-    b = 0.07;
+    b = 0.04;
     for i = 1:d
         cur = X(:,i); %i-th sample, T by 1
         src = X;
