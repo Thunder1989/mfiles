@@ -1,8 +1,8 @@
 %checking holes in data
 %remove hole period from ts
 %511 has only less than 3 days of data
-clear
-clc
+% clear
+% clc
 path = '/Users/hdz/Downloads/code/Data/KETI_oneweek/';
 folder = dir(path);
 first = 1377241200; %8/23/2013 0:0:0am PST
@@ -24,21 +24,21 @@ for n = 4:roomNum
             gt_type = [gt_type i];
             gt_room = [gt_room n-3];
 
-            filename = [path1, file(i).name];
-            sensorName{ctr} = strcat(folder(n).name, '/', file(i).name);
-            input = csvread(filename);
-            input = input(:,1);
-            ts(ts<input(1)) = [];
-            ts(ts>input(end)) = [];
-
-            delta = diff(input); %input is a column vector
-            idx = (delta>=60*5);
-            t_end = input([false idx']); %find the ending ts for each hole period
-            dt = delta(idx);
-            t_start = t_end - dt;
-            for j=1:length(t_start)
-                ts(ts>t_start(j) & ts<t_end(j)) = [];
-            end
+%             filename = [path1, file(i).name];
+%             sensorName{ctr} = strcat(folder(n).name, '/', file(i).name);
+%             input = csvread(filename);
+%             input = input(:,1);
+%             ts(ts<input(1)) = [];
+%             ts(ts>input(end)) = [];
+% 
+%             delta = diff(input); %input is a column vector
+%             idx = (delta>=60*5);
+%             t_end = input([false idx']); %find the ending ts for each hole period
+%             dt = delta(idx);
+%             t_start = t_end - dt;
+%             for j=1:length(t_start)
+%                 ts(ts>t_start(j) & ts<t_end(j)) = [];
+%             end
         end
     end
 end
@@ -147,14 +147,14 @@ for i = 1:sensorNum
 %     t_max = max(tmp);
 %     data(i,:) = (tmp-t_min) / (t_max-t_min);
     u = mean(tmp);
-    d = std(tmp);
-    data(i,:) = (tmp-u) / d;
+    D = std(tmp);
+    data(i,:) = (tmp-u) / D;
 end
 fprintf('normalization done!\n');
 
 %% spectral clustering method
 clc
-w = zeros(sensorNum, sensorNum);
+W = zeros(sensorNum, sensorNum);
 fprintf('lasso computing started...\n');
 res = [];
 for b = 0.02:0.02:0.02
@@ -171,7 +171,7 @@ for b = 0.02:0.02:0.02
             if(idx==i) 
                 idx = idx+1;
             end
-            w(i,idx) = coef(j);
+            W(i,idx) = coef(j);
             idx = idx+1;
         end
     %     fprintf('lasso computing itr %d done!\n', i);
@@ -179,14 +179,14 @@ for b = 0.02:0.02:0.02
 % fprintf('lasso computing done!\n');
 
     [g_, idx] = sort(gt_type); %ground truth indexing
-    w_ = w(idx,idx); %re-ordered by true type ID
-    w_ = max(w_, w_'); %symmetrize N by N
-    d = diag(sum(w_,2));
+    W_ = W(idx,idx); %re-ordered by true type ID
+    W_ = max(W_, W_'); %symmetrize N by N
+    D = diag(sum(W_,2));
 %     find(diag(d)==0)
 %     fprintf('all zero rows found!\n');
 %     pause
-    l = d - w_; %unormalized Laplacian
-    [evc, evl] = eig(l); %N by N, each column in evc is an eigenvector
+    L = D - W_; %unormalized Laplacian
+    [evc, evl] = eig(L); %N by N, each column in evc is an eigenvector
     idx = find(diag(evl)>0);
     input = evc(:,idx(1:4));
     c_idx = kmeans(input,4,'Distance','cosine');
@@ -210,8 +210,8 @@ for i = 1:sensorNum
 %     t_max = max(tmp);
 %     data(i,:) = (tmp-t_min) / (t_max-t_min);
     u = mean(tmp);
-    d = std(tmp);
-    data(i,:) = (tmp-u) / d;
+    D = std(tmp);
+    data(i,:) = (tmp-u) / D;
 end
 options = [];
 options.NeighborMode = 'KNN';
@@ -221,25 +221,25 @@ options.WeightMode = 'Cosine';
 [g_, idx] = sort(gt_type);
 % [g_, idx] = sort(gt_room);
 res_ = [];
-% for i = 5:2:5
-    options.k = 13;
-    w_c = constructW(data, options);
-    w_ = w_c(idx,idx);
-    figure
-    spy(w_)
-    w_ = max(w_, w_'); %symmetric N by N
-    d = diag(sum(w_,2));
+for i = 3:2:21
+    options.k = i;
+    W_c = constructW(data, options);
+    W_ = W_c(idx,idx);
+%     figure
+%     spy(W_)
+    W_ = max(W_, W_'); %symmetric N by N
+    D = diag(sum(W_,2));
 %     find(diag(d)==0)
 %     fprintf('all zero rows found!\n');
 %     pause
-    l = d - w_
-    [evc, evl] = eigs(l,4,'sa'); %N by N, each column is a principal component
+    L = D - W_;
+    [evc, evl] = eigs(L,4,'sa'); %N by N, each column is a principal component
 %     idx = find(diag(evl)>0);
 %     input = evc(:,idx(1:4));
     c_idx = kmeans(evc,4,'Distance','cosine');
-    adjrand(c_idx, g_)
-%     res_ = [res_ adjrand(c_idx, g_)];
-% end
+%     adjrand(c_idx, g_)
+    res_ = [res_ adjrand(c_idx, g_)];
+end
 % figure
 % plot(5:2:21, res_)
 
