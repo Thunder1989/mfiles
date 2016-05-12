@@ -3,10 +3,11 @@ clear
 clc
 close all
 d = 100; %dimension
-run = 100;
+run = 20;
 p = 1; %bernouli probability
 alpha = 0.85; % spectral norm of A
-res = [];
+res1 = [];
+res2 = [];
 for k = 5:5:25 %# of clusters
     A_ = cell(k,1);
     count = [ceil(d/k)*ones(1,mod(d,k)), floor(d/k)*ones(1,k-mod(d,k))];
@@ -15,8 +16,10 @@ for k = 5:5:25 %# of clusters
 %     gt = reshape(tmp',1,[]); %ground truth cluster id
     for T = 100:200:1000 %sample size
         for beta = 0.15:0.05:0.55
+%         for beta = logspace(-3, 0.8, 10) 
             %generate A - block diagonal
             rand_sum = 0;
+            vio_sum = 0;
             for c = 1:run
                 gt = [];
                 for i = 1:numel(A_)
@@ -57,7 +60,8 @@ for k = 5:5:25 %# of clusters
                 X_S = X(1:T-1,:);
                 X_T = X(2:T,:);
 
-                b  = beta * sqrt(log(d)/T);
+                b = beta * sqrt(log(d)/T);
+%                 b = 0.03;
                 for i = 1:d
                     cur = X_T(:,i); %i-th sample, T-1 by 1
                     src = X_S;
@@ -87,21 +91,41 @@ for k = 5:5:25 %# of clusters
                 %w = w + eye(d);
                 [g_, idx] = sort(gt); %ground truth indexing
                 W_ = W(idx,idx); %re-ordered by true type ID
+
+                %compute violation rate
+                B_ = cell(k,1);
+                for i = 1:numel(B_)
+                    num = count(i);
+                    B_{i} = ones(num);
+                end
+                B = blkdiag(B_{:});
+                blk_idx = logical(B);
+                C = abs(W_);
+                inner_c_sum = sum(sum(C(blk_idx)));
+                outer_c_sum = sum(sum(C)) - inner_c_sum;
+                vio = outer_c_sum / inner_c_sum;
+                vio_sum = vio_sum + vio;
+%                 spy(W_)
+%                 continue;
+                
+%                 W_ = A;
                 W_ = max(W_, W_'); %symmetrize w_, N by N
                 D = diag(sum(W_,2));
                 L = D - W_; %unormalized Laplacian
                 [evc, evl] = eig(L); %each column of evc is an eigenvector
                 idx = find(diag(evl)>=0);
                 input = evc(:,idx(1:k));
-            %     input = evc(:,1:idx(k)); %trick: including extra negative and zero evls, slightly better
+%                 input = evc(:,1:idx(k)); %trick: including extra negative and zero evls, slightly better
                 c_idx = kmeans(input,k);
                 ari = adjrand(c_idx, g_);
                 rand_sum = rand_sum + ari;
             %     figure
-            %     spy(w_)
+%                 spy(W_)
             %     res = [res adjrand(c_idx, gt)];
+            
             end
-            res = [res; rand_sum/run];
+            res1 = [res1; vio_sum/run];
+            res2 = [res2; rand_sum/run];
         end
     end
 end
