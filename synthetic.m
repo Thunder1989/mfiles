@@ -8,15 +8,15 @@ p = 1; %bernouli probability
 alpha = 0.85; % spectral norm of A
 res1 = [];
 res2 = [];
-for k = 5:5:25 %# of clusters
+for k = 20:5:25 %# of clusters
     A_ = cell(k,1);
     count = [ceil(d/k)*ones(1,mod(d,k)), floor(d/k)*ones(1,k-mod(d,k))];
 %     tmp = (1:k)';
 %     tmp = repmat(tmp,1,d/k);
 %     gt = reshape(tmp',1,[]); %ground truth cluster id
-    for T = 100:200:1000 %sample size
-        for beta = 0.15:0.05:0.55
-%         for beta = logspace(-3, 0.8, 10) 
+    for T = 1000:200:1000 %sample size
+%         for beta = 0.15:0.05:0.55
+        for beta = logspace(-3, 0.8, 10) 
             %generate A - block diagonal
             rand_sum = 0;
             vio_sum = 0;
@@ -60,7 +60,8 @@ for k = 5:5:25 %# of clusters
                 X_S = X(1:T-1,:);
                 X_T = X(2:T,:);
 
-                b = beta * sqrt(log(d)/T);
+%                 b = beta * sqrt(log(d)/T);
+                b = 1.0 * sqrt(log(d)/T);
 %                 b = 0.03;
                 for i = 1:d
                     cur = X_T(:,i); %i-th sample, T-1 by 1
@@ -103,7 +104,7 @@ for k = 5:5:25 %# of clusters
                 C = abs(W_);
                 inner_c_sum = sum(sum(C(blk_idx)));
                 outer_c_sum = sum(sum(C)) - inner_c_sum;
-                vio = outer_c_sum / inner_c_sum;
+                vio = outer_c_sum / inner_c_sum
                 vio_sum = vio_sum + vio;
 %                 spy(W_)
 %                 continue;
