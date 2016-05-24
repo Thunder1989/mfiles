@@ -216,8 +216,49 @@ end
 options = [];
 options.NeighborMode = 'KNN';
 options.WeightMode = 'Cosine';
-
+options.bTrueKNN = 1;
 % options.t = 1;
+[g_, idx] = sort(gt_type);
+% [g_, idx] = sort(gt_room);
+
+res_ = [];
+for i = 3:2:21
+    options.k = i;
+    W_c = constructW(data, options);
+    W_ = W_c(idx,idx);
+%     figure
+%     spy(W_)
+    W_ = max(W_, W_'); %symmetric N by N
+    D = diag(sum(W_,2));
+%     find(diag(d)==0)
+%     fprintf('all zero rows found!\n');
+%     pause
+    L = D - W_;
+    [evc, evl] = eigs(L,4,'sa'); %N by N, each column is a principal component
+%     idx = find(diag(evl)>0);
+%     input = evc(:,idx(1:4));
+    c_idx = kmeans(evc,4,'Distance','cosine');
+%     adjrand(c_idx, g_)
+    res_ = [res_ adjrand(c_idx, g_)];
+end
+% figure
+% plot(5:2:21, res_)
+
+%% baseline using dtw
+data = input_data;
+data(4:5:end,:) = []; %remove pir since mostly are zeros
+sensorNum = size(data,1); % N stream, each row is a stream
+% normalization
+for i = 1:sensorNum
+    tmp = data(i,:);
+%     t_min = min(tmp);
+%     t_max = max(tmp);
+%     data(i,:) = (tmp-t_min) / (t_max-t_min);
+    u = mean(tmp);
+    D = std(tmp);
+    data(i,:) = (tmp-u) / D;
+end
+
 [g_, idx] = sort(gt_type);
 % [g_, idx] = sort(gt_room);
 res_ = [];
