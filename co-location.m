@@ -390,7 +390,7 @@ clc
 load('keti_corr_typecleared.mat')
 
 %get input sample weight matrix
-ids = [1,15];
+ids = [1,10];
 idx = [];
 for i = 1:length(ids)
     id = ids(i);
@@ -416,7 +416,7 @@ clearx = zeros(nClusters,nNodes); % 0 for the x variables
 cleary = zeros(nClusters,nNodes,nNodes); % 0 for the y variables
 
 % Equality Constraints
-% each sensor belongs to 1 cluster/clique
+% 1) each sensor belongs to 1 cluster/clique
 Aeq = spalloc(nNodes,length(lb),nClusters*nNodes); 
 counter = 1;
 for ii = 1:nNodes
@@ -427,7 +427,7 @@ for ii = 1:nNodes
     counter = counter + 1;
 end
 beq = ones(nNodes,1);
-% each clique has M=4 sensors
+% 2) each clique has M=4 sensors
 Aeq_tmp = spalloc(nClusters,length(lb),nClusters*nNodes); 
 counter = 1;
 for ii = 1:nClusters
@@ -439,6 +439,20 @@ for ii = 1:nClusters
 end
 Aeq = [Aeq; Aeq_tmp];
 beq = [beq; M*ones(nClusters,1)];
+% 3) each clique has M types of sensors
+Aeq_tmp = spalloc(nClusters*M,length(lb),nClusters*M*nClusters); 
+counter = 1;
+for ii = 1:nClusters
+    for jj = 1:M
+        tmp = clearx;
+        tmp(ii,jj:4:end) = 1;
+        addrow = [tmp(:); cleary(:)]';
+        Aeq_tmp(counter,:) = sparse(addrow);
+        counter = counter + 1;
+    end
+end
+Aeq = [Aeq; Aeq_tmp];
+beq = [beq; ones(nClusters*M,1)];
 
 % Inequality Constraints
 % 1) x_iu + x_iv - y_iuv <= 1
@@ -449,6 +463,9 @@ for ii = 1:nClusters
         tmpx = clearx;
         tmpx(ii,jj) = 1;
         for kk = 1:nNodes
+            if kk==jj
+                continue
+            end
             tmpx(ii,kk) = 1;
             tmpy = cleary;
             tmpy(ii,jj,kk) = -1;
@@ -467,6 +484,9 @@ for ii = 1:nClusters
         tmpx = clearx;
         tmpx(ii,jj) = -1;
         for kk = 1:nNodes
+            if kk==jj
+                continue
+            end
             tmpy = cleary;
             tmpy(ii,jj,kk) = 1;
             addrow = [tmpx(:); tmpy(:)]';
@@ -483,7 +503,10 @@ counter = 1;
 for ii = 1:nClusters
     for jj = 1:nNodes
         tmpx = clearx;
-        for kk = 1:nNodes
+        for kk = 1:nNodes            
+            if kk==jj
+                continue
+            end
             tmpx(ii,kk) = -1;
             tmpy = cleary;
             tmpy(ii,jj,kk) = 1;
@@ -496,8 +519,16 @@ end
 A = [A; Atmp];
 b = [b; zeros(nClusters*nNodes*nNodes,1)];
 
-% cost function
-weight = repmat(corr_tmp,nClusters,1);
+% score to maxmize
+weight = cleary;
+for ii = 1:nNodes
+    for jj = 1:nNodes
+        if jj==ii
+            continue
+        end
+        weight(:,ii,jj) = corr_tmp(ii,jj);
+    end
+end
 weight = [clearx(:); weight(:)];
 
 % Optimize with intlinprog
