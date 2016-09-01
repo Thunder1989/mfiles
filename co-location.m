@@ -502,11 +502,11 @@ Atmp = spalloc(nClusters*nNodes*nNodes,length(lb),nClusters*nNodes*nNodes*2);
 counter = 1;
 for ii = 1:nClusters
     for jj = 1:nNodes
-        tmpx = clearx;
         for kk = 1:nNodes            
             if kk==jj
                 continue
             end
+            tmpx = clearx;
             tmpx(ii,kk) = -1;
             tmpy = cleary;
             tmpy(ii,jj,kk) = 1;
