@@ -439,20 +439,20 @@ for ii = 1:nClusters
 end
 Aeq = [Aeq; Aeq_tmp];
 beq = [beq; M*ones(nClusters,1)];
-% 3) each clique has M types of sensors
-Aeq_tmp = spalloc(nClusters*M,length(lb),nClusters*M*nClusters); 
-counter = 1;
-for ii = 1:nClusters
-    for jj = 1:M
-        tmp = clearx;
-        tmp(ii,jj:4:end) = 1;
-        addrow = [tmp(:); cleary(:)]';
-        Aeq_tmp(counter,:) = sparse(addrow);
-        counter = counter + 1;
-    end
-end
-Aeq = [Aeq; Aeq_tmp];
-beq = [beq; ones(nClusters*M,1)];
+% % 3) each clique has M types of sensors
+% Aeq_tmp = spalloc(nClusters*M,length(lb),nClusters*M*nClusters); 
+% counter = 1;
+% for ii = 1:nClusters
+%     for jj = 1:M
+%         tmp = clearx;
+%         tmp(ii,jj:4:end) = 1;
+%         addrow = [tmp(:); cleary(:)]';
+%         Aeq_tmp(counter,:) = sparse(addrow);
+%         counter = counter + 1;
+%     end
+% end
+% Aeq = [Aeq; Aeq_tmp];
+% beq = [beq; ones(nClusters*M,1)];
 
 % Inequality Constraints
 % 1) x_iu + x_iv - y_iuv <= 1
@@ -460,12 +460,12 @@ A = spalloc(nClusters*nNodes*nNodes,length(lb),nClusters*nNodes*nNodes*3); % eac
 counter = 1;
 for ii = 1:nClusters
     for jj = 1:nNodes
-        tmpx = clearx;
-        tmpx(ii,jj) = 1;
         for kk = 1:nNodes
             if kk==jj
                 continue
             end
+            tmpx = clearx;
+            tmpx(ii,jj) = 1;
             tmpx(ii,kk) = 1;
             tmpy = cleary;
             tmpy(ii,jj,kk) = -1;
@@ -520,18 +520,21 @@ A = [A; Atmp];
 b = [b; zeros(nClusters*nNodes*nNodes,1)];
 
 % score to maxmize
-weight = cleary;
-for ii = 1:nNodes
-    for jj = 1:nNodes
-        if jj==ii
-            continue
-        end
-        weight(:,ii,jj) = corr_tmp(ii,jj);
-    end
-end
-weight = [clearx(:); weight(:)];
+% weight = cleary;
+% for ii = 1:nNodes
+%     for jj = 1:nNodes
+%         if jj==ii
+%             continue
+%         end
+%         weight(:,ii,jj) = corr_tmp(ii,jj);
+%     end
+% end
+% weight = [clearx(:); weight(:)];
+
+ty = zeros(nClusters,nNodes,nNodes);
+weight = [[1 0 1 0 1 0 1 0 0 1 0 1 0 1 0 1]'; ty(:)];
 
 % Optimize with intlinprog
 opts = optimoptions('intlinprog','Display','off');
-[solution,costopt,exitflag,output] = intlinprog(-weight,1:length(weight),A,b,Aeq,beq,lb,ub,opts);
+[solution,costopt,exitflag,output] = intlinprog(-weight(1:16),1:length(weight(1:16)),[],[],Aeq(:,1:16),beq,lb(1:16),ub(1:16),opts);
 exitflag
