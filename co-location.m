@@ -390,7 +390,7 @@ clc
 load('keti_corr_typecleared.mat')
 
 %get input sample weight matrix
-ids = [1,10];
+ids = [1,15,40];
 idx = [];
 for i = 1:length(ids)
     id = ids(i);
@@ -427,32 +427,32 @@ for ii = 1:nNodes
     counter = counter + 1;
 end
 beq = ones(nNodes,1);
-% 2) each clique has M=4 sensors
-Aeq_tmp = spalloc(nClusters,length(lb),nClusters*nNodes); 
-counter = 1;
-for ii = 1:nClusters
-    tmp = clearx;
-    tmp(ii,:) = 1;
-    addrow = [tmp(:); cleary(:)]';
-    Aeq_tmp(counter,:) = sparse(addrow);
-    counter = counter + 1;
-end
-Aeq = [Aeq; Aeq_tmp];
-beq = [beq; M*ones(nClusters,1)];
-% % 3) each clique has M types of sensors
-% Aeq_tmp = spalloc(nClusters*M,length(lb),nClusters*M*nClusters); 
+% % 2) each clique has M=4 sensors - this constraint is redundant
+% Aeq_tmp = spalloc(nClusters,length(lb),nClusters*nNodes); 
 % counter = 1;
 % for ii = 1:nClusters
-%     for jj = 1:M
-%         tmp = clearx;
-%         tmp(ii,jj:4:end) = 1;
-%         addrow = [tmp(:); cleary(:)]';
-%         Aeq_tmp(counter,:) = sparse(addrow);
-%         counter = counter + 1;
-%     end
+%     tmp = clearx;
+%     tmp(ii,:) = 1;
+%     addrow = [tmp(:); cleary(:)]';
+%     Aeq_tmp(counter,:) = sparse(addrow);
+%     counter = counter + 1;
 % end
 % Aeq = [Aeq; Aeq_tmp];
-% beq = [beq; ones(nClusters*M,1)];
+% beq = [beq; M*ones(nClusters,1)];
+% 3) each clique has M types of sensors
+Aeq_tmp = spalloc(nClusters*M,length(lb),nClusters*M*nClusters); 
+counter = 1;
+for ii = 1:nClusters
+    for jj = 1:M
+        tmp = clearx;
+        tmp(ii,jj:4:end) = 1;
+        addrow = [tmp(:); cleary(:)]';
+        Aeq_tmp(counter,:) = sparse(addrow);
+        counter = counter + 1;
+    end
+end
+Aeq = [Aeq; Aeq_tmp];
+beq = [beq; ones(nClusters*M,1)];
 
 % Inequality Constraints
 % 1) x_iu + x_iv - y_iuv <= 1
@@ -519,22 +519,23 @@ end
 A = [A; Atmp];
 b = [b; zeros(nClusters*nNodes*nNodes,1)];
 
-% score to maxmize
-% weight = cleary;
-% for ii = 1:nNodes
-%     for jj = 1:nNodes
-%         if jj==ii
-%             continue
-%         end
-%         weight(:,ii,jj) = corr_tmp(ii,jj);
-%     end
-% end
-% weight = [clearx(:); weight(:)];
+%score to maxmize
+weight = cleary;
+for ii = 1:nNodes
+    for jj = 1:nNodes
+        if jj==ii
+            continue
+        end
+        weight(:,ii,jj) = corr_tmp(ii,jj);
+    end
+end
+weight = [clearx(:); weight(:)];
 
-ty = zeros(nClusters,nNodes,nNodes);
-weight = [[1 0 1 0 1 0 1 0 0 1 0 1 0 1 0 1]'; ty(:)];
+% ty = zeros(nClusters,nNodes,nNodes);
+% weight = [[1 0 1 0 1 0 1 0 0 1 0 1 0 1 0 1]'; ty(:)];
 
 % Optimize with intlinprog
 opts = optimoptions('intlinprog','Display','off');
-[solution,costopt,exitflag,output] = intlinprog(-weight(1:16),1:length(weight(1:16)),[],[],Aeq(:,1:16),beq,lb(1:16),ub(1:16),opts);
+[solution,costopt,exitflag,output] = intlinprog(-weight,1:length(weight),A,b,Aeq,beq,lb,ub,opts);
 exitflag
+reshape(solution(1:nClusters*nNodes),nClusters,[])' % room assignment (column) for each sensor (row)
