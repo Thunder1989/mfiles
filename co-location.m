@@ -456,7 +456,7 @@ beq = [beq; M*ones(nClusters,1)];
 
 % Inequality Constraints
 % 1) x_iu + x_iv - y_iuv <= 1
-A = spalloc(nClusters*nNodes*nNodes,length(lb),nClusters*nNodes*nNodes*3); % each sensor belongs to 1 cluster/clique
+A = spalloc(nClusters*nNodes*nNodes,length(lb),nClusters*nNodes*nNodes*3);
 counter = 1;
 for ii = 1:nClusters
     for jj = 1:nNodes
@@ -477,7 +477,7 @@ for ii = 1:nClusters
 end
 b = ones(nClusters*nNodes*nNodes,1);
 % 2) -x_iu + y_iuv <= 0
-Atmp = spalloc(nClusters*nNodes*nNodes,length(lb),nClusters*nNodes*nNodes*2); % each sensor belongs to 1 cluster/clique
+Atmp = spalloc(nClusters*nNodes*nNodes,length(lb),nClusters*nNodes*nNodes*2);
 counter = 1;
 for ii = 1:nClusters
     for jj = 1:nNodes
@@ -498,7 +498,7 @@ end
 A = [A; Atmp];
 b = [b; zeros(nClusters*nNodes*nNodes,1)];
 % 3) -x_iv + y_iuv <= 0
-Atmp = spalloc(nClusters*nNodes*nNodes,length(lb),nClusters*nNodes*nNodes*2); % each sensor belongs to 1 cluster/clique
+Atmp = spalloc(nClusters*nNodes*nNodes,length(lb),nClusters*nNodes*nNodes*2);
 counter = 1;
 for ii = 1:nClusters
     for jj = 1:nNodes
