@@ -404,7 +404,7 @@ corr_tmp = corr_(idx,idx);
 
 M = 4; % # of sensors per cluster
 nNodes = length(corr_tmp);
-nClusters = length(ids);
+nClusters = nNodes/M;
 
 % integer constraints
 lbx = zeros(nClusters,nNodes); % x variables
@@ -519,7 +519,7 @@ end
 A = [A; Atmp];
 b = [b; zeros(nClusters*nNodes*nNodes,1)];
 
-%score to maxmize
+%score used in obj func
 weight = cleary;
 for ii = 1:nNodes
     for jj = 1:nNodes
@@ -530,9 +530,6 @@ for ii = 1:nNodes
     end
 end
 weight = [clearx(:); weight(:)];
-
-% ty = zeros(nClusters,nNodes,nNodes);
-% weight = [[1 0 1 0 1 0 1 0 0 1 0 1 0 1 0 1]'; ty(:)];
 
 % Optimize with intlinprog
 opts = optimoptions('intlinprog','Display','off');
