@@ -387,10 +387,11 @@ idxs(x_tsp==1,:)
 %% new ILP formulation
 clear
 clc
+tic
 load('keti_corr_typecleared.mat')
 
 %get input sample weight matrix
-ids = [1,15,40];
+ids = [1,10,20,30,40,50];
 idx = [];
 for i = 1:length(ids)
     id = ids(i);
@@ -536,3 +537,4 @@ opts = optimoptions('intlinprog','Display','off');
 [solution,costopt,exitflag,output] = intlinprog(-weight,1:length(weight),A,b,Aeq,beq,lb,ub,opts);
 exitflag
 reshape(solution(1:nClusters*nNodes),nClusters,[])' % room assignment (column) for each sensor (row)
+toc
