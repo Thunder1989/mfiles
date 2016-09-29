@@ -1,9 +1,10 @@
 function smoothed_z = EWMA(z,L)
 %
 % Computes the exponentially weighted moving average (with memory L) of
-% input data z is a row vector
+% input data z is a one-dimensional vector
 %
 
+z = z(:)';
 lambda = 1-2/(L+1);
 
 smoothed_z = zeros(size(z));

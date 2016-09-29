@@ -1,5 +1,6 @@
 function [f0_time,f0_value,SHR,f0_candidates]=shrp(Y,Fs,F0MinMax,frame_length,timestep,SHR_Threshold,ceiling,med_smooth,CHECK_VOICING)
 % SHRP - a pitch determination algorithm based on Subharmonic-to-Harmonic Ratio (SHR)
+% Note by HDZ: seems this package gives inconsistent/unreasonable results
 % [f0_time,f0_value,SHR,f0_candidates]=shrp(Y,Fs[,F0MinMax,frame_length,TimeStep,SHR_Threshold,Ceiling,med_smooth,CHECK_VOICING]) 
 %
 %   Input parameters (There are 9):
