@@ -144,8 +144,8 @@ significance = ctr / N
 %% permutation test, with permutations created by swapping based on the ground truth arrangement and only permutate within type
 % clear
 clc
-% load('keti_corr_typecleared.mat')
-room_list = importdata('keti_room_list');
+load('keti_corr_typecleared.mat')
+% room_list = importdata('keti_room_list');
 type_list = {'co2', 'hum', 'light', 'temp'};
 k = 51;
 corr_ = corr - diag(diag(corr)); % remove 1s on the diagonal
@@ -164,7 +164,7 @@ ctr = 0;
 times = 0;
 idx = 1:k*4;
 idx = reshape(idx, 4, []);
-p = 3; %length of permutation subsequence
+p = 5; %length of permutation subsequence
 FN = sprintf('permutation_log_p%s.txt',num2str(p));
 FID = fopen(FN,'w');
 count = zeros(4,1);
@@ -198,7 +198,7 @@ for t = 1:4
                 room_id = floor((combo(i,:)-1)/4)+1;
                 fprintf(FID, '%s--%s', type_list{t}, num2str(room_id));
                 for n = 1:length(room_id)
-                    fprintf(FID, ',%s', room_list{room_id(n)});
+%                     fprintf(FID, ',%s', room_list{room_id(n)});
                 end
                 fprintf(FID, '\n');
             end
@@ -207,13 +207,14 @@ for t = 1:4
 end
 fclose('all');
 
-% [n, x] = hist(res, 20);
-% figure
-% hold on
-% bar(x, n/times);
-% plot([score, score], [0,max(n)/times], 'r--', 'LineWidth', 2)
-% significance = ctr / times;
-% xlabel(['p-value=',num2str(significance),' on ',num2str(times),' with k=',num2str(p)]);
+[n, x] = hist(res, 50);
+figure
+hold on
+bar(x, n/times);
+plot([score, score], [0,max(n)/times], 'r--', 'LineWidth', 2)
+significance = ctr / times;
+xlabel('correlation score');
+title(['p-value=',num2str(significance),' on ',num2str(times),' with k=',num2str(p)]);
 [count'/ctr ctr/ times], times
 
 %% permutation test including across type permutations
@@ -538,3 +539,25 @@ opts = optimoptions('intlinprog','Display','off');
 exitflag
 reshape(solution(1:nClusters*nNodes),nClusters,[])' % room assignment (column) for each sensor (row)
 toc
+
+%%
+clear
+clc
+path = './rmt/';
+folder = dir(path);
+first = intmin;
+last = intmax;
+num = size(folder,1);
+for n = 1:1
+    path1 = strcat(path, folder(n).name,'/');   %path to each room
+    file = dir(strcat(path1,'*.csv'));
+    len = size(file,1);
+    for i = 1:len
+        filename = [path1, file(i).name];
+        input = csvread(filename);
+        input = sortrows(input);
+        figure
+        plot(input(:,2), 'LineWidth', 2)
+        pause
+    end
+end

@@ -3,21 +3,24 @@ clear
 clc
 close all
 d = 100; %dimension
-run = 20;
+run = 1;
 p = 1; %bernouli probability
 %alpha = 0.85; % spectral norm of A
-k=25
 res1 = [];
 res2 = [];
+k = 15
 %for k = 5:5:25 %# of clusters
-for alpha = 0.1:0.2:1.0 %# of clusters
+for alpha = 0.8:0.2:0.8
+% for alpha = 0.1:0.2:1.0 
     A_ = cell(k,1);
-    count = [ceil(d/k)*ones(1,mod(d,k)), floor(d/k)*ones(1,k-mod(d,k))];
+    count = [ceil(d/k)*ones(1,mod(d,k)), floor(d/k)*ones(1,k-mod(d,k))]; % # of TS in each cluster
 %     tmp = (1:k)';
 %     tmp = repmat(tmp,1,d/k);
 %     gt = reshape(tmp',1,[]); %ground truth cluster id
-    for T = 100:200:1000 %sample size
-        for beta = 0.05:0.05:0.55
+    for T = 700:200:700 %sample size
+%     for T = 100:200:1000 %sample size
+        for beta = 0.45:0.05:0.45
+%         for beta = 0.05:0.05:0.55
 %         for beta = logspace(-3, 0.8, 10) 
             %generate A - block diagonal
             rand_sum = 0;
@@ -26,8 +29,8 @@ for alpha = 0.1:0.2:1.0 %# of clusters
                 gt = [];
                 for i = 1:numel(A_)
                     num = count(i);
-                    A_{i} = binornd(1,p,num,num); %equal-sized cluster
-                    gt = [gt i*ones(1,num)];
+                    A_{i} = randi([1 10],1) * binornd(1,p,num,num); %randomly assign 1s to each block
+                    gt = [gt i*ones(1,num)]; % cluster id
                 end
                 A = blkdiag(A_{:});
                 A = eye(d) + A-diag(diag(A));
@@ -65,21 +68,12 @@ for alpha = 0.1:0.2:1.0 %# of clusters
                 b = beta * sqrt(log(d)/T);
 %                 b = 0.03;
                 for i = 1:d
-                    cur = X_T(:,i); %i-th sample, T-1 by 1
+                    dest = X_T(:,i); %i-th sample, T-1 by 1
                     src = X_S;
             %         src(:,i) = []; %all other samples, T-1 by d-1
                     % 0.015~0.03 for max-min normalization, 0.06 gives no zero rows
                     % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all reasonable
-                    coef = lasso(src, cur, 'Lambda', b); %d-1 by 1
-            %         coef = lasso(src, cur); %d-1 by 1
-            %         idx = 1;
-            %         for j = 1:length(coef)
-            %             if(idx==i) 
-            %                 idx = idx+1;
-            %             end
-            %             w(i,idx) = coef(j);
-            %             idx = idx+1;
-            %         end
+                    coef = lasso(src, dest, 'Lambda', b); %d-1 by 1
                     W(i,:) = coef;
                 end
 
@@ -107,7 +101,7 @@ for alpha = 0.1:0.2:1.0 %# of clusters
                 outer_c_sum = sum(sum(C)) - inner_c_sum;
                 vio = outer_c_sum / inner_c_sum;
                 vio_sum = vio_sum + vio;
-%                 spy(W_)
+                spy(W_)
 %                 continue;
                 
 %                 W_ = A;
@@ -119,12 +113,11 @@ for alpha = 0.1:0.2:1.0 %# of clusters
                 input = evc(:,idx(1:k));
 %                 input = evc(:,1:idx(k)); %trick: including extra negative and zero evls, slightly better
                 c_idx = kmeans(input,k);
-                ari = adjrand(c_idx, g_);
+                ari = adjrand(c_idx, g_)
                 rand_sum = rand_sum + ari;
             %     figure
 %                 spy(W_)
             %     res = [res adjrand(c_idx, gt)];
-            
             end
             res1 = [res1; vio_sum/run];
             res2 = [res2; rand_sum/run];
@@ -132,6 +125,63 @@ for alpha = 0.1:0.2:1.0 %# of clusters
     end
 end
 
-save('vio_vs_alpha','res1');
-save('rand_vs_alpha','res2');
+save('synthetic.mat','X');
+% save('vio_vs_alpha','res1');
+% save('rand_vs_alpha','res2');
 
+%% CC
+% load('corr_syn.mat');
+res = [];
+for i=1:run
+    corr = corrcoef(X);
+    corr = corr - eye(size(corr));
+    W_ = corr;
+    run = 10;
+    W_ = max(W_, W_'); %symmetrize w_, N by N
+    D = diag(sum(W_,2));
+    L = D - W_; %unormalized Laplacian
+    [evc, evl] = eig(L); %each column of evc is an eigenvector
+    idx = find(diag(evl)>=0);
+    input = evc(:,idx(1:k));
+    % input = evc(:,1:idx(k)); %trick: including extra negative and zero evls, slightly better
+    c_idx = kmeans(input,k);
+    ari = adjrand(c_idx, gt);
+    res = [res ari];
+end
+%% Cosine
+options = [];
+options.NeighborMode = 'KNN';
+options.WeightMode = 'Cosine';
+options.bTrueKNN = 1;
+% options.t = 1;
+
+res_ = [];
+for i = 7:2:7
+    options.k = i;
+    W_c = constructW(X', options);
+    W_ = W_c(idx,idx);
+%     figure
+%     spy(W_)
+    W_ = max(W_, W_'); %symmetric N by N
+    D = diag(sum(W_,2));
+    L = D - W_;
+    [evc, evl] = eigs(L,4,'sa'); %N by N, each column is a principal component
+    c_idx = kmeans(evc,4,'Distance','cosine');
+    ari = adjrand(c_idx, gt)
+    res_ = [res_ adjrand(c_idx, gt)];
+end
+
+%% ACF
+load('acf_syn.mat');
+W_ = acf;
+W_ = W_ - min(W_(:));
+W_ = W_ ./ max(W_(:)); %normalized to (0,1)
+W_ = 1 - W_; %convert distance to correlation-like
+D = diag(sum(W_,2));
+L = D - W_; %unormalized Laplacian
+[evc, evl] = eig(L); %each column of evc is an eigenvector
+idx = find(diag(evl)>=0);
+input = evc(:,idx(1:k));
+% input = evc(:,1:idx(k)); %trick: including extra negative and zero evls, slightly better
+c_idx = kmeans(input,k);
+ari = adjrand(c_idx, g_)

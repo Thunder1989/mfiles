@@ -3,7 +3,7 @@
 %511 has only less than 3 days of data
 % clear
 % clc
-path = '/Users/hdz/Downloads/code/Data/KETI_oneweek/';
+path = '/Users/hdz1989/Downloads/code/Data/KETI_oneweek/';
 folder = dir(path);
 first = 1377241200; %8/23/2013 0:0:0am PST
 last = 1378018799; %8/31/2013 11:59:59pm PST
@@ -137,6 +137,7 @@ end
 fprintf('data processing done!\n');
 
 %% normalization
+load('keti_processed_ssc.mat');
 data = input_data;
 data(4:5:end,:) = []; %remove pir since mostly are zeros
 sensorNum = size(data,1); % N stream
@@ -152,12 +153,12 @@ for i = 1:sensorNum
 end
 fprintf('normalization done!\n');
 
-%% spectral clustering method
+%% spectral clustering on Dantzig
 clc
 W = zeros(sensorNum, sensorNum);
 fprintf('lasso computing started...\n');
 res = [];
-for b = 0.02:0.02:0.02
+for b = 0.08:0.02:0.08
 %     b = 0.14;
     for i = 1:sensorNum
         cur = data(i,:); %1 by d
@@ -190,16 +191,36 @@ for b = 0.02:0.02:0.02
     idx = find(diag(evl)>0);
     input = evc(:,idx(1:4));
     c_idx = kmeans(input,4,'Distance','cosine');
-%     adjrand(c_idx, g_)
-%     figure
-%     spy(w_)
+    adjrand(c_idx, g_)
     res = [res adjrand(c_idx, g_)];
 end
 fprintf('lasso-based spectral clustering done...\n');
-% figure
-% plot(0.015:0.005:0.015, res)
 
-%% baseline w
+%% CC
+clc
+res = [];
+k = 4;
+for i=1:10
+    corr = corrcoef(data');
+    corr = corr - eye(size(corr));
+    W_ = corr;
+    [g_, idx] = sort(gt_type); %ground truth indexing
+    W_ = W_(idx,idx); %re-ordered by true type ID
+    W_ = max(W_, W_'); %symmetrize w_, N by N
+    D = diag(sum(W_,2));
+    L = D - W_; %unormalized Laplacian
+    [evc, evl] = eig(L); %each column of evc is an eigenvector
+    idx = find(diag(evl)>=0);
+    input = evc(:,idx(1:k));
+    % input = evc(:,1:idx(k)); %trick: including extra negative and zero evls, slightly better
+    c_idx = kmeans(input,k,'Distance','cosine');
+    ari = adjrand(c_idx, g_);
+    res = [res ari];
+end
+mean(res)
+std(res)
+
+%% Cosine
 data = input_data;
 data(4:5:end,:) = []; %remove pir since mostly are zeros
 sensorNum = size(data,1); % N stream, each row is a stream
@@ -221,8 +242,9 @@ options.bTrueKNN = 1;
 [g_, idx] = sort(gt_type);
 % [g_, idx] = sort(gt_room);
 
-res_ = [];
-for i = 3:2:21
+res = [];
+for run=1:10
+    for i = 5:2:5
     options.k = i;
     W_c = constructW(data, options);
     W_ = W_c(idx,idx);
@@ -235,16 +257,21 @@ for i = 3:2:21
 %     pause
     L = D - W_;
     [evc, evl] = eigs(L,4,'sa'); %N by N, each column is a principal component
+%     [evc, evl] = eig(L); %N by N, each column in evc is an eigenvector
 %     idx = find(diag(evl)>0);
 %     input = evc(:,idx(1:4));
     c_idx = kmeans(evc,4,'Distance','cosine');
 %     adjrand(c_idx, g_)
-    res_ = [res_ adjrand(c_idx, g_)];
+    res = [res adjrand(c_idx, g_)];
+    end
 end
+mean(res)
+std(res)
 % figure
 % plot(5:2:21, res_)
 
-%% baseline using dtw
+%% DTW
+clc
 data = input_data;
 data(4:5:end,:) = []; %remove pir since mostly are zeros
 sensorNum = size(data,1); % N stream, each row is a stream
@@ -261,28 +288,51 @@ end
 
 [g_, idx] = sort(gt_type);
 % [g_, idx] = sort(gt_room);
-res_ = [];
-for i = 3:2:21
-    options.k = i;
-    W_c = constructW(data, options);
-    W_ = W_c(idx,idx);
-%     figure
-%     spy(W_)
-    W_ = max(W_, W_'); %symmetric N by N
+res = [];
+W_ = zeros(sensorNum,sensorNum);
+combo = nchoosek(1:sensorNum,2);
+for i = 1:length(combo)
+    pair = combo(i,:);
+    p1 = pair(1);
+    p2 = pair(2);
+    W_(p1,p2) = dtw(data(p1,:),data(p2,:));
+end
+save('dtw.mat','W_');
+W_ = W_ - min(W_(:));
+W_ = W_ ./ max(W_(:)); %normalized to (0,1)
+W_ = W_(idx,idx);
+W_ = 1 - W_; %convert distance to correlation-like
+W_ = max(W_, W_'); %symmetric N by N
+for run=1:10
     D = diag(sum(W_,2));
 %     find(diag(d)==0)
 %     fprintf('all zero rows found!\n');
 %     pause
-    L = D - W_;
-    [evc, evl] = eigs(L,4,'sa'); %N by N, each column is a principal component
-%     idx = find(diag(evl)>0);
-%     input = evc(:,idx(1:4));
-    c_idx = kmeans(evc,4,'Distance','cosine');
-%     adjrand(c_idx, g_)
-    res_ = [res_ adjrand(c_idx, g_)];
+    L = D - W_; %unormalized Laplacian
+    [evc, evl] = eig(L); %N by N, each column in evc is an eigenvector
+    idx = find(diag(evl)>0);
+    input = evc(:,idx(1:4));
+    c_idx = kmeans(input,4,'Distance','cosine');
+    adjrand(c_idx, g_);
+    res = [res adjrand(c_idx, g_)];
 end
-% figure
-% plot(5:2:21, res_)
+mean(res)
+std(res)
+
+%% PCA
+clc
+load('keti_aligned_nopir.mat')
+k = 4;
+res = [];
+corr = pca(data);
+input = data*corr(:,1:k);
+for run=1:10
+    c_idx = kmeans(input, k);
+    ari = adjrand(c_idx, gt_type);
+    res = [res ari];
+end
+mean(res)
+std(res)
 
 %% plot each for inspection
 sensorNum = size(data,1); % N stream
