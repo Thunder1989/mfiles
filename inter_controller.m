@@ -8,7 +8,8 @@ vavs = dir(strcat(path_vav, '*.csv'));
 inter_corr = [];
 intra_corr = [];
 ctr = 0;
-for m = 1:length(vavs)
+for m = 1:9
+% for m = 1:length(vavs)
     fn = [path_vav, vavs(m).name];
     ahuid = str2double(vavs(m).name(5));
     data_vav = csvread(fn,2);
@@ -39,26 +40,26 @@ for m = 1:length(vavs)
         ctr = ctr + 1;
     else
         vavs(m).name
-        figure
-        hold on
-        grid on
-        yyaxis left
-        plot(data_vav(:,1), 'LineWidth',2)
-
-        yyaxis right
-        [id, n] = max(vav_corr);
-        fn = [path_ahu, ahus(n).name];
-        data_ahu = csvread(fn,2);
-        fprintf('wrong AHU: %s\n', ahus(n).name);
-        plot(data_ahu(:,5), 'r', 'LineWidth',2)
-        
-        n = ahuid;
-        fn = [path_ahu, ahus(n).name];
-        data_ahu = csvread(fn,2);
-        fprintf('correct AHU: %s\n', ahus(n).name);
-        plot(data_ahu(:,5), 'k', 'LineWidth',2)
-        legend({'vav\_AirFlow', 'maxAHU\_supplyFanSpeed', 'trueAHU\_supplyFanSpeed'}, 'Location','southeast', 'FontSize',12)
-        pause
+%         figure
+%         hold on
+%         grid on
+%         yyaxis left
+%         plot(data_vav(:,1), 'LineWidth',2)
+% 
+%         yyaxis right
+%         [id, n] = max(vav_corr);
+%         fn = [path_ahu, ahus(n).name];
+%         data_ahu = csvread(fn,2);
+%         fprintf('wrong AHU: %s\n', ahus(n).name);
+%         plot(data_ahu(:,5), 'r', 'LineWidth',2)
+%         
+%         n = ahuid;
+%         fn = [path_ahu, ahus(n).name];
+%         data_ahu = csvread(fn,2);
+%         fprintf('correct AHU: %s\n', ahus(n).name);
+%         plot(data_ahu(:,5), 'k', 'LineWidth',2)
+%         legend({'vav\_AirFlow', 'maxAHU\_supplyFanSpeed', 'trueAHU\_supplyFanSpeed'}, 'Location','southeast', 'FontSize',12)
+%         pause
     end
 end
 
