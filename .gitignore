@@ -5,3 +5,5 @@
 *.m~
 *.py
 *.csv
+
+!/Relationship/data*/*
