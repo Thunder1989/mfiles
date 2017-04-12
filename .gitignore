@@ -6,5 +6,8 @@
 *.m~
 *.py
 *.csv
+*.mat
+*.R
 
+/voice/*
 !/Relationship/data*/*
