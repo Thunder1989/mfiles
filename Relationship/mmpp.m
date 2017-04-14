@@ -10,8 +10,8 @@ function samples = sensorMCMC(N,priors,ITERS,events,EQUIV)
 %              S2 = force sharing of eta (time of day) among *ays
 %              Values: 1 (all days are shared),  2 (weekdays/weekends),  3 (none)
 
-if (nargin < 4) events=zeros(size(N)); end;
-if (numel(events)==0) events = zeros(size(N)); end;
+if (nargin < 4), events=zeros(size(N)); end;
+if (numel(events)==0), events = zeros(size(N)); end;
 
 if (nargin < 5) EQUIV=[3,3]; end;
 
@@ -36,10 +36,12 @@ switch EQUIV(1) % h(t)
 end;
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
+N=round(N);
+% N=N-min(min(N));
 Z=zeros(size(N)); N0=max(N,1); NE=zeros(size(N)); L=(N+5)/2; %L is not used
 M=[.999,.5;.001,.5]; 
-% M=[.9,.5;.1,.5];
-xs = 0:80;
+% M=[0.75 0.25; 0.25 0.75];
+% xs = 0:80;
 Nd=7; Nh=size(N,1);
 samples.L = zeros([size(L),Niter]);
 samples.D = zeros([1,Nd,Niter]);
@@ -48,7 +50,8 @@ samples.Z = zeros([size(Z),Niter]);
 samples.M = zeros([size(M),Niter]);
 samples.N0 =zeros([size(N0),Niter]);
 samples.NE =zeros([size(NE),Niter]);
-samples.logp_NgLM = zeros(1,Niter); samples.logp_NgLZ = zeros(1,Niter);
+samples.logp_NgLM = zeros(1,Niter); 
+samples.logp_NgLZ = zeros(1,Niter);
 
 % MAIN LOOP: MCMC FOR INFERENCE
 for iter=1:Niter+Nburn,
@@ -64,22 +67,22 @@ for iter=1:Niter+Nburn,
     samples.N0(:,:,iter-Nburn) = N0; samples.NE(:,:,iter-Nburn) = NE;
     samples.logp_NgLM(iter-Nburn) = eval_N_LM(N,L,M,priors);
     samples.logp_NgLZ(iter-Nburn) = eval_N_LZ(N,L,Z,priors);
+    [logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV);  
+    logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
+%     fprintf('\n Iter %d Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',iter, logpC,logpC/numel(N));
+    mmppPlot(L,Z,N,NE,events,100); title('MCMC Samples'); %pause(.5);
   end;
 %   fprintf('.');         % DISPLAY / PLOT CURRENT SAMPLES & AVERAGES
 
-%   mmppPlot(L,Z,N,events,100); title('MCMC Samples'); %pause(.5);
-  if (mod(iter,Nplot)==0 && iter > Nburn)  
+%   if (mod(iter,Nplot)==0 && iter > Nburn)  
 %     mmppPlot(mean(samples.L(:,:,1:iter-Nburn),3), ...
 %       mean(samples.Z(:,:,1:iter-Nburn),3), N, events,101); figure(101); title('Posterior Averages');      
-    [logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV);  
-    logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
-%     fprintf('\n  Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',logpC,logpC/numel(N));
 %     pause(.1);
-  end;
+%   end;
 end;
-[logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV); 
-logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
-fprintf('\n  Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',logpC,logpC/numel(N));
+% [logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV); 
+% logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
+% fprintf('\n Final Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',logpC,logpC/numel(N));
 samples.logpC = logpC;
 samples.logpGD = logpGD;
 samples.logpGDz = logpGDz;
@@ -181,7 +184,7 @@ function p = dirpdf(X,A)			% evaluate a dirichlet distribution
 function logp = dirlnpdf(X,A)			% eval log(dirichlet)
   k = length(X); if (k==1) p=1; return; end;
   logp = sum( (A-1).*log(X) ) - sum(gammaln(A)) + gammaln(sum(A));  
-function p=poisspdf(X,L)			% poisson distribution
+function p=poisspdf(X,L)			% poisson distribution, and use self-defined is faster than using the ones provided by matlab
   lnp = -L -gammaln(X+1) +log(L).*X;
   p = exp(lnp);
 function lnp=poisslnpdf(X,L)			% log(poisson)
@@ -196,7 +199,7 @@ function lnp = nbinlnpdf(X,R,P)			% log(neg binomial)
 %% SAMPLING FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
 function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
-  N0 = N; NE = 0*N; Z=0*N; ep = 1e-50;
+  N0=N; NE=0*N; Z=0*N; ep=1e-50;
 
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % FIRST SAMPLE Z, N0, NE:
@@ -204,11 +207,13 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
   for t=1:numel(N),
     if (N(t)~=-1)
       po(1,t) = poisspdf(N(t),L(t))+ep;
+%       figure(333);hist(poisspdf(0:N(t),L(t)),10,'replace');
+%       figure(333);hist(nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)),20,'replace');
       po(2,t) = sum( poisspdf(0:N(t),L(t)) .* nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)) )+ep;
     else po(1,t)=1; po(2,t)=1;
     end;
   end;
-  % Compute forward (filtering) posterior marginals
+  % Compute forward posterior marginals
   p(:,1) = PRIOR .* po(:,1); p(:,1)=p(:,1)/sum(p(:,1));
   for t=2:numel(N), p(:,t) = (M*p(:,t-1)).*po(:,t); p(:,t)=p(:,t)/sum(p(:,t)); end;  
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -222,7 +227,7 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
         % possible values of N(E)
         ptmp = poisslnpdf(0:N(t),L(t)) + nbinlnpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)); 
         ptmp=exp(ptmp); ptmp=ptmp/sum(ptmp);
-        N0(t) = min(find(cumsum(ptmp) >= rand(1)))-1; % draw sample of N0
+        N0(t) = find(cumsum(ptmp) >= rand(1), 1)-1; % draw sample of N0
         NE(t) = N(t) - N0(t);                             % and compute NE
       else
         Z(t)=1; N0(t)=poissrnd(L(t)); NE(t)=nbinrnd(prior.aE,prior.bE/(1+prior.bE));
@@ -235,9 +240,9 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
       end;
     end;
     ptmp = zeros(2,1); ptmp(Z(t)+1) = 1;    % compute backward influence
-    if (t>1) p(:,t-1) = p(:,t-1).*(M'*ptmp); p(:,t-1)=p(:,t-1)/sum(p(:,t-1)); end;
+    if (t>1), p(:,t-1) = p(:,t-1).*(M'*ptmp); p(:,t-1)=p(:,t-1)/sum(p(:,t-1)); end;
   end;
-  
+
 function [M] = draw_M_Z(Z,prior)
   % GIVEN Z, SAMPLE M
   n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0));
@@ -245,12 +250,12 @@ function [M] = draw_M_Z(Z,prior)
   z0 = betarnd(n01+prior.z01, n0-n01+prior.z00);
   z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
   M = [1-z0, z1; z0, 1-z1];
-    
+
 function [L,D,A] = draw_L_N0(N0,prior,EQUIV)
   Nd=7; Nh=size(N0,1);
   
   % 1st: OVERALL AVERAGE RATE
-  if (prior.MODE) L0 = (sum(sum(N0))+prior.aL)/(numel(N0)+prior.bL);
+  if (prior.MODE), L0 = (sum(sum(N0))+prior.aL)/(numel(N0)+prior.bL);
   else            L0 = gamrnd(sum(sum(N0))+prior.aL,1/(numel(N0)+prior.bL)); end;
 %   L0
   L = zeros(size(N0)) + L0;
@@ -259,7 +264,7 @@ function [L,D,A] = draw_L_N0(N0,prior,EQUIV)
   D = zeros(1,Nd);
   for i=1:length(D)
     alpha = sum(sum(N0(:,i:7:end))) + prior.aD(i); %TBD: is this correct? no normalization?
-    if (prior.MODE) D(i) = (alpha-1);           % mode of Gamma(a,1) distribution
+    if (prior.MODE), D(i) = (alpha-1);           % mode of Gamma(a,1) distribution
     else            D(i) = gamrnd(alpha,1); end;
   end; 
   
