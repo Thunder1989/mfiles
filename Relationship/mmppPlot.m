@@ -1,4 +1,4 @@
-function plotMMPP(L,Z,N,TRUTH,FIG,RANGE)
+function plotMMPP(L,Z,N,N0,TRUTH,FIG,RANGE)
 % plotMMPP(Rate,PEvent,Data,Events,Fig,Range)
 % plot data and parameters of the Markov modulated Poisson process
 %   Rate   = estimated rate function; 
@@ -12,13 +12,18 @@ function plotMMPP(L,Z,N,TRUTH,FIG,RANGE)
 
 if (~exist('RANGE','var')) RANGE = 1:numel(Z); end;
 
+figure(FIG); 
+subplot(3,1,1:2,'replace');
+hold on; grid on;
+H=plot(RANGE,N(RANGE),'b-');
+ylabel('Counts'); %legend('Observed');
+% subplot(3,1,2,'replace')
+H=plot(RANGE,N0(RANGE),'r-');  
+% ylabel('Counts'); legend('Estimated N0');
+
 figure(FIG); subplot(3,1,3,'replace'); hold on;
   S=stem(RANGE,Z(RANGE),'k'); set(S,'MarkerSize',0,'LineWidth',2);
-  xlabel('Time'); ylabel('P(event)');
+  xlabel('Time'); ylabel('Event');
   if (~isempty(TRUTH)),
     hold on; S=stem(RANGE,-.25*TRUTH(RANGE),'b'); set(S,'MarkerSize',0,'LineWidth',1);
   end;
-figure(FIG); subplot(3,1,1:2,'replace'); hold on;
-  H=plot(RANGE,N(RANGE),'b-');
-  H=plot(RANGE,L(RANGE),'r-');  
-  ylabel('Counts'); legend('Observed','Profile');
