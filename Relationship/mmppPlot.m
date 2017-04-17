@@ -20,6 +20,7 @@ ylabel('Counts'); %legend('Observed');
 % subplot(3,1,2,'replace')
 H=plot(RANGE,N0(RANGE),'r-');  
 % ylabel('Counts'); legend('Estimated N0');
+% set(H, 'YLim', [0 1.5*max(N(RANGE))]);
 
 figure(FIG); subplot(3,1,3,'replace'); hold on;
   S=stem(RANGE,Z(RANGE),'k'); set(S,'MarkerSize',0,'LineWidth',2);

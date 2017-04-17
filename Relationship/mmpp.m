@@ -36,8 +36,10 @@ switch EQUIV(1) % h(t)
 end;
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
-N=round(N);
+% N=round(N);
 % N=N-min(min(N));
+N = raw2count(N,1);
+events = zeros(size(N));
 Z=zeros(size(N)); N0=max(N,1); NE=zeros(size(N)); L=(N+5)/2; %L is not used
 M=[.999,.5;.001,.5]; 
 % M=[0.75 0.25; 0.25 0.75];
@@ -70,7 +72,7 @@ for iter=1:Niter+Nburn,
     [logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV);  
     logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
 %     fprintf('\n Iter %d Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',iter, logpC,logpC/numel(N));
-    mmppPlot(L,Z,N,NE,events,100); title('MCMC Samples'); %pause(.5);
+%     mmppPlot(L,Z,N,NE,events,100); title('MCMC Samples'); %pause(.5);
   end;
 %   fprintf('.');         % DISPLAY / PLOT CURRENT SAMPLES & AVERAGES
 
@@ -86,6 +88,25 @@ end;
 samples.logpC = logpC;
 samples.logpGD = logpGD;
 samples.logpGDz = logpGDz;
+
+%function to convert raw data to count data 
+function count = raw2count(N, base)
+hr = 2;
+sample_freq = 4;
+mean_day = mean(N);
+Nd = size(N,2);
+mean_day = repmat(mean_day, size(N,1)/(hr*sample_freq), 1);
+mean_day = reshape(mean_day, 1, []); %comparison base
+switch base
+    case 1,
+        N = reshape(N, sample_freq * hr, []);
+        count = zeros(size(mean_day));
+        for i=1:size(N,2)
+            count(i) = sum( N(:,i)>=mean_day(i) );
+        end
+        count = reshape(count, [], Nd);
+    case 2, 
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
 %% EVALUATION FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  

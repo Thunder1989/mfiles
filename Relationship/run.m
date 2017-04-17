@@ -22,11 +22,11 @@ prob_ahu = cell(num,1);
 base_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
-for n = 4:4
+for n = 1:num
     fn = [path_ahu, ahus(n).name];
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
-    cur_ahu = cur_ahu(:,1);
+    cur_ahu = cur_ahu(:,end);
     cur_ahu = reshape(cur_ahu, 96, []);
     ahu_list(n) = str2double(ahus(n).name(5));
 
@@ -60,7 +60,7 @@ base_vav = cell(num,1);
 N0_vav = cell(num,1);
 NE_vav = cell(num,1);
 
-for m = 1:9
+for m = 1:num
     fn = [path_vav, vavs(m).name];
     ahuid = str2double(vavs(m).name(5));
     cur_vav = csvread(fn,2);
@@ -80,11 +80,11 @@ for m = 1:9
     data = res.NE(:,:,end);
     NE_vav{m} = reshape(data,[],1)';
 
-    figure
-    hold on
-    plot(reshape(cur_vav, 1, []),'k--')
-    plot(N0_vav{m},'r--')
-    plot(NE_vav{m},'g--')
+%     figure
+%     hold on
+%     plot(reshape(cur_vav, 1, []),'k--')
+%     plot(N0_vav{m},'r--')
+%     plot(NE_vav{m},'g--')
     
 %     res.D(:,:,end)
 %     vav_corr = zeros(length(ahus),1);
@@ -92,12 +92,12 @@ end
 
 %% plot
 figure
-num = 8;
+num = 9;
 for m=1:num
     subplot(num,2,2*m-1)
-    plot(N0_ahu{m},'b')
+    plot(N0_vav{m},'b')
     subplot(num,2,2*m)
-    plot(NE_ahu{m},'k')
+    plot(NE_vav{m},'k')
 end
 
 %% correlating on N0
@@ -107,13 +107,13 @@ ctr = 0;
 for m=1:length(vavs)
     fn = [path_vav, vavs(m).name];
     ahuid = str2double(vavs(m).name(5));
-    cur_vav = N0_vav{m};
+    cur_vav = NE_vav{m};
 
     for n=1:length(base_ahu)
         fn = [path_ahu, ahus(n).name];
         cur_ahuid = str2double(ahus(n).name(5));
     
-        cur_ahu = N0_ahu{n};
+        cur_ahu = NE_ahu{n};
         cur_corr = corrcoef(cur_vav, cur_ahu);
         cur_corr = cur_corr(1,2);
         vav_corr(m,n) = abs(cur_corr);
