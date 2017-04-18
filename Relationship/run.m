@@ -3,7 +3,7 @@ clear
 clc
 
 T = 28; % # of days
-Niter = 50;
+Niter = 40;
 Nburn = 10;
 Nplot = 20;
 
@@ -22,7 +22,7 @@ prob_ahu = cell(num,1);
 base_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
-for n = 1:num
+for n = 2:2
     fn = [path_ahu, ahus(n).name];
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
@@ -55,6 +55,7 @@ end
 % figure
 
 num = length(vavs);
+num = 9;
 prob_vav = cell(num,1);
 base_vav = cell(num,1);
 N0_vav = cell(num,1);
@@ -182,13 +183,3 @@ for m=1:9
     cur = reshape( sum(cur)/size(cur,1),7,[] )';    %even trickier
     vav_ep{m} = cur; %prob per hour for each day
 end
-
-%% MCMC test
-trial = 1000000;
-ctr = 0;
-for i=1:trial
-    if rand(1)^2+rand(1)^2<=1
-        ctr = ctr+1;
-    end
-end
-est = ctr/trial*4

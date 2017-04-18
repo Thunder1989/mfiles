@@ -38,8 +38,8 @@ fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n
 
 % N=round(N);
 % N=N-min(min(N));
-N = raw2count(N,1);
-events = zeros(size(N));
+% N = raw2count(N,1);
+% events = zeros(size(N));
 Z=zeros(size(N)); N0=max(N,1); NE=zeros(size(N)); L=(N+5)/2; %L is not used
 M=[.999,.5;.001,.5]; 
 % M=[0.75 0.25; 0.25 0.75];
@@ -72,7 +72,7 @@ for iter=1:Niter+Nburn,
     [logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV);  
     logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
 %     fprintf('\n Iter %d Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',iter, logpC,logpC/numel(N));
-%     mmppPlot(L,Z,N,NE,events,100); title('MCMC Samples'); %pause(.5);
+    mmppPlot(L,Z,N,NE,events,100); title('MCMC Samples'); %pause(.5);
   end;
 %   fprintf('.');         % DISPLAY / PLOT CURRENT SAMPLES & AVERAGES
 
@@ -89,7 +89,7 @@ samples.logpC = logpC;
 samples.logpGD = logpGD;
 samples.logpGDz = logpGDz;
 
-%function to convert raw data to count data 
+%Function for converting raw data to count data 
 function count = raw2count(N, base)
 hr = 2;
 sample_freq = 4;
@@ -108,9 +108,7 @@ switch base
     case 2, 
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-%% EVALUATION FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+%% EVALUATION FUNCTIONS
 function [logpC, logpGD, logpGDz] = logp(N,samples,priors,iter,EQUIV);
 % estimate the marginal likelihood of the data using our samples
 % (Produces three estimates; Chib's is probably the best of the three)
@@ -195,9 +193,7 @@ function logp = eval_N_LM(N,L,M,prior)		% evaluate p(N | L,M)
     logp = logp + log(sp); p(:,t)=p(:,t)/sp;
   end;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-%% MISC PDF FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+%% MISC PDF FUNCTIONS
 function p = dirpdf(X,A)			% evaluate a dirichlet distribution
   k = length(X); if (k==1) p=1; return; end;
   logp = sum( (A-1).*log(X) ) - sum(gammaln(A)) + gammaln(sum(A));
@@ -216,9 +212,7 @@ function p = nbinpdf(X,R,P)			% negative binomial distribution
 function lnp = nbinlnpdf(X,R,P)			% log(neg binomial)
   lnp = gammaln(X+R)-gammaln(R)-gammaln(X+1)+log(P).*R+log(1-P).*X;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-%% SAMPLING FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+%% SAMPLING FUNCTIONS
 function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
   N0=N; NE=0*N; Z=0*N; ep=1e-50;
 
@@ -230,7 +224,7 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
       po(1,t) = poisspdf(N(t),L(t))+ep;
 %       figure(333);hist(poisspdf(0:N(t),L(t)),10,'replace');
 %       figure(333);hist(nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)),20,'replace');
-      po(2,t) = sum( poisspdf(0:N(t),L(t)) .* nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)) )+ep;
+      po(2,t) = sum( poisspdf(0:N(t),L(t)) .* nbinpdf(N(t):-1:0,prior.aE,1/(1+prior.bE)) )+ep; %changed from be/1+be, which might be buggy
     else po(1,t)=1; po(2,t)=1;
     end;
   end;
@@ -246,12 +240,12 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
         Z(t)=1; 
         % likelihood of all possible event/normal combinations (all
         % possible values of N(E)
-        ptmp = poisslnpdf(0:N(t),L(t)) + nbinlnpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)); 
+        ptmp = poisslnpdf(0:N(t),L(t)) + nbinlnpdf(N(t):-1:0,prior.aE,1/(1+prior.bE)); 
         ptmp=exp(ptmp); ptmp=ptmp/sum(ptmp);
         N0(t) = find(cumsum(ptmp) >= rand(1), 1)-1; % draw sample of N0
         NE(t) = N(t) - N0(t);                             % and compute NE
       else
-        Z(t)=1; N0(t)=poissrnd(L(t)); NE(t)=nbinrnd(prior.aE,prior.bE/(1+prior.bE));
+        Z(t)=1; N0(t)=poissrnd(L(t)); NE(t)=nbinrnd(prior.aE,1/(1+prior.bE));
       end;
     else
       if (N(t)~=-1)
@@ -284,7 +278,7 @@ function [L,D,A] = draw_L_N0(N0,prior,EQUIV)
   % 2nd: DAY EFFECT
   D = zeros(1,Nd);
   for i=1:length(D)
-    alpha = sum(sum(N0(:,i:7:end))) + prior.aD(i); %TBD: is this correct? no normalization?
+    alpha = sum(sum(N0(:,i:7:end))) + prior.aD(i);
     if (prior.MODE), D(i) = (alpha-1);           % mode of Gamma(a,1) distribution
     else            D(i) = gamrnd(alpha,1); end;
   end; 
@@ -310,5 +304,5 @@ function [L,D,A] = draw_L_N0(N0,prior,EQUIV)
     case 3, A=A;
   end;
   for tau=1:size(A,2), A(:,tau)=A(:,tau)/mean(A(:,tau)); end;
-  % & COMPUTE L(t)
+  % COMPUTE L(t)
   for d=1:size(L,2),for t=1:size(L,1), dd=mod(d-1,7)+1; L(t,d) = L0 * D(dd) * A(t,dd); end; end;
