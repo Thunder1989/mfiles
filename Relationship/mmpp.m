@@ -201,10 +201,10 @@ function p = dirpdf(X,A)			% evaluate a dirichlet distribution
 function logp = dirlnpdf(X,A)			% eval log(dirichlet)
   k = length(X); if (k==1) p=1; return; end;
   logp = sum( (A-1).*log(X) ) - sum(gammaln(A)) + gammaln(sum(A));  
-function p=poisspdf(X,L)			% poisson distribution, and use self-defined is faster than using the ones provided by matlab
+function p = poisspdf(X,L)			% poisson distribution, and use self-defined is faster than using the ones provided by matlab
   lnp = -L -gammaln(X+1) +log(L).*X;
   p = exp(lnp);
-function lnp=poisslnpdf(X,L)			% log(poisson)
+function lnp = poisslnpdf(X,L)			% log(poisson)
   lnp = -L -gammaln(X+1) +log(L).*X;
 function p = nbinpdf(X,R,P)			% negative binomial distribution
   lnp = gammaln(X+R)-gammaln(R)-gammaln(X+1)+log(P).*R+log(1-P).*X;
