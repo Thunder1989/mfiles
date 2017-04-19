@@ -20,10 +20,12 @@ ylabel('Counts'); %legend('Observed');
 % subplot(3,1,2,'replace')
 H=plot(RANGE,N0(RANGE),'r-');  
 % ylabel('Counts'); legend('Estimated N0');
+% set(H, 'YLim', [0 1.5*max(N(RANGE))]);
 
 figure(FIG); subplot(3,1,3,'replace'); hold on;
-  S=stem(RANGE,Z(RANGE),'k'); set(S,'MarkerSize',0,'LineWidth',2);
-  xlabel('Time'); ylabel('Event');
-  if (~isempty(TRUTH)),
-    hold on; S=stem(RANGE,-.25*TRUTH(RANGE),'b'); set(S,'MarkerSize',0,'LineWidth',1);
-  end;
+S=stem(RANGE,Z(RANGE),'k'); set(S,'MarkerSize',0,'LineWidth',2);
+xlabel('Time'); ylabel('Event');
+if (~isempty(TRUTH)),
+    hold on; 
+    S=stem(RANGE,-.25*TRUTH(RANGE),'b'); set(S,'MarkerSize',0,'LineWidth',1);
+end;
