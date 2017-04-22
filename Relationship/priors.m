@@ -7,6 +7,6 @@ priors.aH = zeros(4*24,7)+1;          % time of day effect dirichlet params
 
 priors.z01 = .01*10000; priors.z00 = .99*10000;     % z(t) event process
 priors.z10 = .1*10000; priors.z11 = .9*10000;     
-priors.aE = 3; priors.bE = 1/4;       % gamma(t), or NBin, for event # process
+priors.aE = 1; priors.bE = 1/3;       % gamma(t), or lomax, for event # process
 
 priors.MODE = 0;

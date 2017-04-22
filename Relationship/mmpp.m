@@ -67,12 +67,12 @@ for iter=1:Niter+Nburn,
     samples.H(:,:,iter-Nburn) = H;
     samples.Z(:,:,iter-Nburn) = Z;   samples.M(:,:,iter-Nburn) = M;
     samples.N0(:,:,iter-Nburn) = N0; samples.NE(:,:,iter-Nburn) = NE;
-    samples.logp_NgLM(iter-Nburn) = eval_N_LM(N,L,M,priors);
-    samples.logp_NgLZ(iter-Nburn) = eval_N_LZ(N,L,Z,priors);
-    [logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV);  
-    logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
+    %samples.logp_NgLM(iter-Nburn) = eval_N_LM(N,L,M,priors);
+    %samples.logp_NgLZ(iter-Nburn) = eval_N_LZ(N,L,Z,priors);
+    %[logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV);  
+    %logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
 %     fprintf('\n Iter %d Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',iter, logpC,logpC/numel(N));
-    mmppPlot(L,Z,N,NE,events,100); title('MCMC Samples'); %pause(.5);
+%     mmppPlot(L,Z,N,NE,events,100); title('MCMC Samples'); %pause(.5);
   end;
 %   fprintf('.');         % DISPLAY / PLOT CURRENT SAMPLES & AVERAGES
 
@@ -85,9 +85,9 @@ end;
 % [logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV); 
 % logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
 % fprintf('\n Final Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',logpC,logpC/numel(N));
-samples.logpC = logpC;
-samples.logpGD = logpGD;
-samples.logpGDz = logpGDz;
+%samples.logpC = logpC;
+%samples.logpGD = logpGD;
+%samples.logpGDz = logpGDz;
 
 %Function for converting raw data to count data 
 function count = raw2count(N, base)
@@ -172,8 +172,8 @@ function logp = eval_N_LZ(N,L,Z,prior)		% evaluate p(N|L,Z)
   logp = 0;
   for t=1:numel(N)
     if (N(t)~=-1),
-      if (Z(t)==0), logp = logp + log(poisspdf(N(t),L(t)));
-      else          logp = logp + log(sum( poisspdf(0:N(t),L(t)) .* nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)) ));
+      if (Z(t)==0), logp = logp + log(exppdf(N(t),L(t)));
+      else          logp = logp + log(sum( exppdf(0:N(t),L(t)) .* nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)) ));
       end;
   end; end;
 
@@ -181,8 +181,8 @@ function logp = eval_N_LM(N,L,M,prior)		% evaluate p(N | L,M)
   PRIOR = M^100 * [1;0]; po=zeros(2,numel(N)); p=zeros(2,numel(N));
   for t=1:numel(N),
     if (N(t)~=-1)
-      po(1,t) = poisspdf(N(t),L(t));      
-      po(2,t) = sum( poisspdf(0:N(t),L(t)) .* nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)) );
+      po(1,t) = exppdf(N(t),L(t));      
+      po(2,t) = sum( exppdf(0:N(t),L(t)) .* nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)) );
     else po(1,t)=1; po(2,t)=1;
     end;
   end;
@@ -211,6 +211,13 @@ function p = nbinpdf(X,R,P)			% negative binomial distribution
   p = exp(lnp);
 function lnp = nbinlnpdf(X,R,P)			% log(neg binomial)
   lnp = gammaln(X+R)-gammaln(R)-gammaln(X+1)+log(P).*R+log(1-P).*X;
+function p = lomaxpdf(X,L,A) %L is scale, A is shape
+    p = A/L * (1+X/L) .^ (-A-1);
+function lnp = lomaxlnpdf(X,L,A) %L is scale, A is shape
+    p = A/L * (1+X/L) .^ (-A-1);
+    lnp = log(p);
+function lnp = explnpdf(X,L)
+    lnp = log(exppdf(X,L));
 
 %% SAMPLING FUNCTIONS
 function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
@@ -221,10 +228,10 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
   PRIOR = M^100 * [1;0]; po=zeros(2,numel(N)); p=zeros(2,numel(N));
   for t=1:numel(N),
     if (N(t)~=-1)
-      po(1,t) = poisspdf(N(t),L(t))+ep;
-%       figure(333);hist(poisspdf(0:N(t),L(t)),10,'replace');
+      po(1,t) = exppdf(N(t),L(t))+ep;
+%       figure(333);hist(exppdf(0:N(t),L(t)),10,'replace');
 %       figure(333);hist(nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)),20,'replace');
-      po(2,t) = sum( poisspdf(0:N(t),L(t)) .* nbinpdf(N(t):-1:0,prior.aE,1/(1+prior.bE)) )+ep; %changed from be/1+be, which might be buggy
+      po(2,t) = sum( exppdf(0:N(t),L(t)) .* lomaxpdf(N(t):-1:0,prior.bE,prior.aE) )+ep; %changed from be/1+be, which might be buggy
     else po(1,t)=1; po(2,t)=1;
     end;
   end;
@@ -240,7 +247,7 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
         Z(t)=1; 
         % likelihood of all possible event/normal combinations (all
         % possible values of N(E)
-        ptmp = poisslnpdf(0:N(t),L(t)) + nbinlnpdf(N(t):-1:0,prior.aE,1/(1+prior.bE)); 
+        ptmp = explnpdf(0:N(t),L(t)) + lomaxlnpdf(N(t):-1:0,prior.bE,prior.aE); 
         ptmp=exp(ptmp); ptmp=ptmp/sum(ptmp);
         N0(t) = find(cumsum(ptmp) >= rand(1), 1)-1; % draw sample of N0
         NE(t) = N(t) - N0(t);                             % and compute NE
@@ -271,7 +278,7 @@ function [L,D,A] = draw_L_N0(N0,prior,EQUIV)
   
   % 1st: OVERALL AVERAGE RATE
   if (prior.MODE), L0 = (sum(sum(N0))+prior.aL)/(numel(N0)+prior.bL);
-  else            L0 = gamrnd(sum(sum(N0))+prior.aL,1/(numel(N0)+prior.bL)); end;
+  else            L0 = gamrnd( numel(N0)+prior.aL, 1/(sum(sum(N0))+prior.bL) ); end;
 %   L0
   L = zeros(size(N0)) + L0;
   

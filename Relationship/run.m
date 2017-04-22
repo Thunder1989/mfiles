@@ -50,6 +50,11 @@ for n = 2:2
 %     stem( reshape(mean(res.Z, 3),[],1), 'k', 'MarkerSize', 1);
 end
 
+figure; plot(reshape(cur_ahu,1,[]),'k')
+hold on; 
+plot(reshape(res.N0(:,:,end),1,[]),'b')
+plot(reshape(res.NE(:,:,end),1,[]),'r')
+
 %%
 %load vav data
 % figure
