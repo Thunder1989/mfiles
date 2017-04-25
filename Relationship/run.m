@@ -3,7 +3,7 @@ clear
 clc
 
 T = 28; % # of days
-Niter = 40;
+Niter = 50;
 Nburn = 10;
 Nplot = 20;
 
@@ -17,12 +17,12 @@ vavs = dir(strcat(path_vav, '*.csv'));
 num = length(ahus);
 ahu_dist = cell(num,1);
 ahu_list = zeros(num,1);
-% figure
 prob_ahu = cell(num,1);
 base_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
-for n = 2:2
+% figure
+for n = 3:3
     fn = [path_ahu, ahus(n).name];
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
@@ -30,7 +30,7 @@ for n = 2:2
     cur_ahu = reshape(cur_ahu, 96, []);
     ahu_list(n) = str2double(ahus(n).name(5));
 
-    % AHU col 3 - SupplyAirPress,  5 - SupplyFanSpeedOutput (the # of cols varies..
+    % AHU col 3-SupplyAirPress,  5-SupplyFanSpeedOutput (the # of cols varies..
 %         cur_corr = corrcoef(cur_ahu(:,5), cur_vav(:,1));
 %         cur_corr = cur_corr(1,2);
 %         vav_corr(n) = abs(cur_corr);
@@ -45,15 +45,21 @@ for n = 2:2
     N0_ahu{n} = reshape(data,[],1)';
     data = res.NE(:,:,end);
     NE_ahu{n} = reshape(data,[],1)';
-%     subplot(length(ahus),1,n)
-%     plotyy(1:numel(data), reshape(cur_ahu,[],1), 1:numel(data), reshape(data,[],1), @plot, @stem);
-%     stem( reshape(mean(res.Z, 3),[],1), 'k', 'MarkerSize', 1);
+
+    figure
+    plot(reshape(cur_ahu,1,[]),'k')
+    grid on; hold on; 
+    % plot(reshape(res.N0(:,:,end),1,[]),'b')
+    plot(reshape(res.N0(:,:,end),1,[]),'r')
+    day_bd = zeros(1, numel(cur_ahu));
+    day_bd(1:4*24:end) = 1*max(cur_ahu(:));
+    for t=1:numel(day_bd)
+        plot([t t], [0 day_bd(t)], 'b--', 'LineWidth', 1.5);
+    end
+    fn = sprintf('ahu_%d.png',n);
+    saveas(gcf,fn);
 end
 
-figure; plot(reshape(cur_ahu,1,[]),'k')
-hold on; 
-plot(reshape(res.N0(:,:,end),1,[]),'b')
-plot(reshape(res.NE(:,:,end),1,[]),'r')
 
 %%
 %load vav data
@@ -98,12 +104,12 @@ end
 
 %% plot
 figure
-num = 9;
+num = 8;
 for m=1:num
     subplot(num,2,2*m-1)
-    plot(N0_vav{m},'b')
+    plot(N0_ahu{m},'k')
     subplot(num,2,2*m)
-    plot(NE_vav{m},'k')
+    plot(NE_ahu{m},'r')
 end
 
 %% correlating on N0

@@ -61,7 +61,7 @@ for iter=1:Niter+Nburn,
   [Z,N0,NE] = draw_Z_NLM(N,L,M,priors);
   M = draw_M_Z(Z,priors);
   
-  if (iter > Nburn)      % SAVE SAMPLES AFTER BURN IN
+  if (iter > Nburn)
     samples.L(:,:,iter-Nburn) = L;
     samples.D(:,:,iter-Nburn) = D;
     samples.H(:,:,iter-Nburn) = H;
@@ -72,7 +72,7 @@ for iter=1:Niter+Nburn,
     %[logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV);  
     %logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
 %     fprintf('\n Iter %d Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',iter, logpC,logpC/numel(N));
-%     mmppPlot(L,Z,N,NE,events,100); title('MCMC Samples'); %pause(.5);
+    mmppPlot(L,Z,N,NE,events,123); title(sprintf('iter %d',iter)); %pause(.5);
   end;
 %   fprintf('.');         % DISPLAY / PLOT CURRENT SAMPLES & AVERAGES
 
@@ -222,7 +222,7 @@ function lnp = explnpdf(X,L)
 %% SAMPLING FUNCTIONS
 function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
   N0=N; NE=0*N; Z=0*N; ep=1e-50;
-
+  steplen=0.01;
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % FIRST SAMPLE Z, N0, NE:
   PRIOR = M^100 * [1;0]; po=zeros(2,numel(N)); p=zeros(2,numel(N));
@@ -231,7 +231,7 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
       po(1,t) = exppdf(N(t),L(t))+ep;
 %       figure(333);hist(exppdf(0:N(t),L(t)),10,'replace');
 %       figure(333);hist(nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)),20,'replace');
-      po(2,t) = sum( exppdf(0:N(t),L(t)) .* lomaxpdf(N(t):-1:0,prior.bE,prior.aE) )+ep; %changed from be/1+be, which might be buggy
+      po(2,t) = sum( exppdf(0:steplen:N(t),L(t)) .* lomaxpdf(N(t):-steplen:0,prior.bE,prior.aE) )+ep; %changed from be/1+be, which might be buggy
     else po(1,t)=1; po(2,t)=1;
     end;
   end;
@@ -247,9 +247,9 @@ function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
         Z(t)=1; 
         % likelihood of all possible event/normal combinations (all
         % possible values of N(E)
-        ptmp = explnpdf(0:N(t),L(t)) + lomaxlnpdf(N(t):-1:0,prior.bE,prior.aE); 
+        ptmp = explnpdf(0:steplen:N(t),L(t)) + lomaxlnpdf(N(t):-steplen:0,prior.bE,prior.aE); 
         ptmp=exp(ptmp); ptmp=ptmp/sum(ptmp);
-        N0(t) = find(cumsum(ptmp) >= rand(1), 1)-1; % draw sample of N0
+        N0(t) = steplen * ( find(cumsum(ptmp) >= rand(1),1) - 1 ); % draw sample of N0
         NE(t) = N(t) - N0(t);                             % and compute NE
       else
         Z(t)=1; N0(t)=poissrnd(L(t)); NE(t)=nbinrnd(prior.aE,1/(1+prior.bE));
