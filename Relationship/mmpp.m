@@ -36,12 +36,12 @@ switch EQUIV(1) % h(t)
 end;
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
-% N=round(N);
+N=round(N);
 % N=N-min(min(N));
 % N = raw2count(N,1);
 % events = zeros(size(N));
 Z=zeros(size(N)); N0=max(N,1); NE=zeros(size(N)); L=(N+5)/2; %L is not used
-M=[.999,.5;.001,.5]; 
+M=[.99,.5;.01,.5]; 
 % M=[0.75 0.25; 0.25 0.75];
 % xs = 0:80;
 Nd=7; Nh=size(N,1);
@@ -49,30 +49,38 @@ samples.L = zeros([size(L),Niter]);
 samples.D = zeros([1,Nd,Niter]);
 samples.H = zeros([Nh,Nd,Niter]);
 samples.Z = zeros([size(Z),Niter]);
-samples.M = zeros([size(M),Niter]);
-samples.N0 =zeros([size(N0),Niter]);
-samples.NE =zeros([size(NE),Niter]);
+samples.PE = zeros([2,numel(N),Niter]);
+samples.M  = zeros([size(M),Niter]);
+samples.N0 = zeros([size(N0),Niter]);
+samples.NE = zeros([size(NE),Niter]);
 samples.logp_NgLM = zeros(1,Niter); 
 samples.logp_NgLZ = zeros(1,Niter);
 
 % MAIN LOOP: MCMC FOR INFERENCE
 for iter=1:Niter+Nburn,
-  [L,D,H] = draw_L_N0(N0,priors,EQUIV);
-  [Z,N0,NE] = draw_Z_NLM(N,L,M,priors);
-  M = draw_M_Z(Z,priors);
+    [Bmu,Bsigma] = draw_L_N0(N0,priors,EQUIV);
+%   figure; hold on; %for debugging mu^B output
+%   plot(reshape(generate_base(D,H),1,[]),'k');
+%   plot(reshape(N0,[],4));
+%   fprintf('test delta eta');
+%   pause
+
+    [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,M,priors);
+    M = draw_M_Z(Z,priors);
   
   if (iter > Nburn)
     samples.L(:,:,iter-Nburn) = L;
     samples.D(:,:,iter-Nburn) = D;
     samples.H(:,:,iter-Nburn) = H;
-    samples.Z(:,:,iter-Nburn) = Z;   samples.M(:,:,iter-Nburn) = M;
+    samples.Z(:,:,iter-Nburn) = Z;
+    samples.PE(:,:,iter-Nburn) = PE;    samples.M(:,:,iter-Nburn) = M;
     samples.N0(:,:,iter-Nburn) = N0; samples.NE(:,:,iter-Nburn) = NE;
     %samples.logp_NgLM(iter-Nburn) = eval_N_LM(N,L,M,priors);
     %samples.logp_NgLZ(iter-Nburn) = eval_N_LZ(N,L,Z,priors);
     %[logpC, logpGD, logpGDz] = logp(N,samples,priors,iter-Nburn,EQUIV);  
     %logpC=logpC/log(2); logpGD=logpGD/log(2); logpGDz=logpGDz/log(2); 
 %     fprintf('\n Iter %d Est Marginal Likelihd: ln P(Data) = %.1f  (%.3f per time)\n',iter, logpC,logpC/numel(N));
-    mmppPlot(L,Z,N,NE,events,123); title(sprintf('iter %d',iter)); %pause(.5);
+%     mmppPlot(L,Z,N,NE,events,123); title(sprintf('iter %d',iter)); %pause(.5);
   end;
 %   fprintf('.');         % DISPLAY / PLOT CURRENT SAMPLES & AVERAGES
 
@@ -220,96 +228,135 @@ function lnp = explnpdf(X,L)
     lnp = log(exppdf(X,L));
 
 %% SAMPLING FUNCTIONS
-function [Z,N0,NE] = draw_Z_NLM(N,L,M,prior)
-  N0=N; NE=0*N; Z=0*N; ep=1e-50;
-  steplen=0.01;
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  % FIRST SAMPLE Z, N0, NE:
-  PRIOR = M^100 * [1;0]; po=zeros(2,numel(N)); p=zeros(2,numel(N));
-  for t=1:numel(N),
-    if (N(t)~=-1)
-      po(1,t) = exppdf(N(t),L(t))+ep;
-%       figure(333);hist(exppdf(0:N(t),L(t)),10,'replace');
-%       figure(333);hist(nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)),20,'replace');
-      po(2,t) = sum( exppdf(0:steplen:N(t),L(t)) .* lomaxpdf(N(t):-steplen:0,prior.bE,prior.aE) )+ep; %changed from be/1+be, which might be buggy
-    else po(1,t)=1; po(2,t)=1;
+function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,M,prior)
+    N0=N; NE=0*N; Z=0*N; ep=1e-50;
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % FIRST SAMPLE Z, N0, NE:
+    PRIOR = M^100 * [1;0]; pe=zeros(2,numel(N)); p=zeros(2,numel(N));
+
+    %emission probability
+    for t=1:numel(N),
+        Bmu_t = Bmu(t);  
+        Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2);
+
+        pe(1,t) = normpdf(N(t), Bmu_t, Bsigma_t) + ep; %z_t=0
+%         figure(333);hist(exppdf(0:N(t),L(t)),10,'replace');
+%         figure(333);hist(nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)),20,'replace');
+        
+        sigma1 = Bsigma_t; sigma2 = sqrt( prior.Esigma^2 + prior.sigma0^2);
+        mu12 = ( (N(t)-Bmu_t)*sigma2^2 + prior.mu0*simg1^2 ) / (sigma1^2 + sigma2^2);
+        sigma12 = sigma1^2*sigma2^2/ (sigma1^2+sigma2^2);
+        pe(2,t) = 1/(2*pi*sigma1*sigma2) * exp(- (N(t)-Bmu_t-prior.mu0)^2 / 2*(simga1^2+sigma2^2) ) ...
+            * normcdf(N(t), mu12, sigma12);
     end;
-  end;
-  % Compute forward posterior marginals
-  p(:,1) = PRIOR .* po(:,1); p(:,1)=p(:,1)/sum(p(:,1));
-  for t=2:numel(N), p(:,t) = (M*p(:,t-1)).*po(:,t); p(:,t)=p(:,t)/sum(p(:,t)); end;  
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  
-  % Do backward sampling
-  for t=numel(N):-1:1
-    if (rand(1) > p(1,t)),                          % if event at time t
-      if (N(t)~=-1)
-        Z(t)=1; 
-        % likelihood of all possible event/normal combinations (all
-        % possible values of N(E)
-        ptmp = explnpdf(0:steplen:N(t),L(t)) + lomaxlnpdf(N(t):-steplen:0,prior.bE,prior.aE); 
-        ptmp=exp(ptmp); ptmp=ptmp/sum(ptmp);
-        N0(t) = steplen * ( find(cumsum(ptmp) >= rand(1),1) - 1 ); % draw sample of N0
-        NE(t) = N(t) - N0(t);                             % and compute NE
-      else
-        Z(t)=1; N0(t)=poissrnd(L(t)); NE(t)=nbinrnd(prior.aE,1/(1+prior.bE));
-      end;
-    else
-      if (N(t)~=-1)
-        Z(t)=0; N0(t)=N(t); NE(t)=0;              % no event at time t
-      else
-        Z(t)=0; N0(t)=poissrnd(L(t)); NE(t)=0;
-      end;
-    end;
-    ptmp = zeros(2,1); ptmp(Z(t)+1) = 1;    % compute backward influence
-    if (t>1), p(:,t-1) = p(:,t-1).*(M'*ptmp); p(:,t-1)=p(:,t-1)/sum(p(:,t-1)); end;
-  end;
+    
+    % Compute forward posterior marginals
+    p(:,1) = PRIOR .* pe(:,1); p(:,1)=p(:,1)/sum(p(:,1));
+    for t=2:numel(N)
+        p(:,t) = (M*p(:,t-1)).*pe(:,t); 
+        p(:,t)=p(:,t)/sum(p(:,t)); 
+    end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % BACKWARD SAMPLING
+    for t=numel(N):-1:1
+        if (rand(1) > p(1,t)),                          % if event at time t
+            if (N(t)~=-1)
+                Z(t)=1; 
+                % likelihood of all possible event/normal combinations (all
+                % possible values of N(E)
+                ptmp = poisslnpdf(0:steplen:N(t),L(t)) + nbinlnpdf(N(t):-steplen:0,prior.aE,prior.bE/(1+prior.bE)); 
+                ptmp=exp(ptmp); ptmp=ptmp/sum(ptmp);
+                N0(t) = steplen * ( find(cumsum(ptmp) >= rand(1),1) - 1 ); % draw sample of N0
+                NE(t) = N(t) - N0(t);                             % and compute NE
+            else
+                Z(t)=1; N0(t)=poissrnd(L(t)); NE(t)=nbinrnd(prior.aE,prior.bE/(1+prior.bE));
+            end
+        else
+            if (N(t)~=-1)
+                Z(t)=0; N0(t)=N(t); NE(t)=0;              % no event at time t
+            else
+                Z(t)=0; N0(t)=poissrnd(L(t)); NE(t)=0;
+            end
+        end
+        ptmp = zeros(2,1); ptmp(Z(t)+1) = 1;    % compute backward influence
+        if (t>1), p(:,t-1) = p(:,t-1).*(M'*ptmp); p(:,t-1)=p(:,t-1)/sum(p(:,t-1)); end;
+    end
+    PE = p;
 
 function [M] = draw_M_Z(Z,prior)
-  % GIVEN Z, SAMPLE M
-  n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0));
-  n10 = length(find(Z(1:end-1)==1 & Z(2:end)==0)); n1=length(find(Z(1:end-1)==1));
-  z0 = betarnd(n01+prior.z01, n0-n01+prior.z00);
-  z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
-  M = [1-z0, z1; z0, 1-z1];
+    % GIVEN Z, SAMPLE M
+    n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0));
+    n10 = length(find(Z(1:end-1)==1 & Z(2:end)==0)); n1=length(find(Z(1:end-1)==1));
+    z0 = betarnd(n01+prior.z01, n0-n01+prior.z00);
+    z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
+    M = [1-z0, z1; z0, 1-z1];
 
-function [L,D,A] = draw_L_N0(N0,prior,EQUIV)
-  Nd=7; Nh=size(N0,1);
+function [Bmu,Bsigma] = draw_L_N0(N0,prior,EQUIV)
+    Nd=7;   Nh=size(N0,1);
+    Bmu = zeros(size(N0));
+    Bsigma = zeros(size(N0));
+    
+    %DAY EFFECT
+    Dmu = zeros(1,Nd);
+    Dsigma = zeros(1,Nd);
+    Hmu = zeros(Nh,Nd);
+    Hsigma = zeros(Nh,Nd);
+    
+    for d=1:length(Dmu)
+        daysum_d = sum(N0(:,d:7:end));
+        daysum_d = daysum_d/Nh;
+        [mu, sigma] = get_post_para(daysum_d, prior.Dmu(d), prior.Dsigma(d));
+        Dmu(d) = mu;
+        Dsigma(d) = sigma;
+        %TIME OF DAY EFFECT
+        for h=1:size(Hmu,1)   %interval
+            hour_sample = N0(h,d:7:end);
+            hour_sample = hour_sample - daysum_d;
+            [mu, sigma] = get_post_para(hour_sample, prior.Hmu(h,d), prior.Hsigma(h,d));
+            Hmu(h,d) = mu;
+            Hsigma(h,d) = sigma;
+        end  
+    end
   
-  % 1st: OVERALL AVERAGE RATE
-  if (prior.MODE), L0 = (sum(sum(N0))+prior.aL)/(numel(N0)+prior.bL);
-  else            L0 = gamrnd( numel(N0)+prior.aL, 1/(sum(sum(N0))+prior.bL) ); end;
-%   L0
-  L = zeros(size(N0)) + L0;
-  
-  % 2nd: DAY EFFECT
-  D = zeros(1,Nd);
-  for i=1:length(D)
-    alpha = sum(sum(N0(:,i:7:end))) + prior.aD(i);
-    if (prior.MODE), D(i) = (alpha-1);           % mode of Gamma(a,1) distribution
-    else            D(i) = gamrnd(alpha,1); end;
-  end; 
-  
-  % 3rd: TIME OF DAY EFFECT
-  A = zeros(Nh,Nd);
-  for tau=1:size(A,2), for i=1:size(A,1),
-      alpha = sum(N0(i,tau:7:end)) + prior.aH(i);
-      if (prior.MODE) A(i,tau) = (alpha-1);           % mode of Gamma(a,1) distribution
-      else            A(i,tau) = gamrnd(alpha,1); end;
-    end; 
-  end;
-  
-  % ENFORCE PARAMETER SHARING
-  switch EQUIV(1) % d(t)
-    case 1, D(1:7) = 1;
-    case 2, D([1,7]) = mean(D([1,7])); D(2:6)=mean(D(2:6)); D=D/mean(D);
-    case 3, D = D/mean(D);
-  end;
-  switch EQUIV(2) % tau(t)
-    case 1, A(:,1:7) = repmat(mean(A,2),[1,size(A,2)]);
-    case 2, A(:,[1,7]) = repmat(mean(A(:,[1,7]),2),[1,2]); A(:,2:6)=repmat(mean(A(:,2:6),2),[1,5]); 
-    case 3, A=A;
-  end;
-  for tau=1:size(A,2), A(:,tau)=A(:,tau)/mean(A(:,tau)); end;
-  % COMPUTE L(t)
-  for d=1:size(L,2),for t=1:size(L,1), dd=mod(d-1,7)+1; L(t,d) = L0 * D(dd) * A(t,dd); end; end;
+    %TBD: enforce paramter sharing between days
+    switch EQUIV(1)
+        case 1,
+        case 2,
+        case 3,
+    end
+    
+    switch EQUIV(2)
+        case 1,
+        case 2,
+        case 3,
+    end
+    
+    % COMPUTE mu^B
+    for d=1:size(Bmu,2)
+        dd = mod(d-1,7)+1; 
+        for h=1:size(Bmu,1)
+            Bmu(h,d) = Dmu(dd) + Hmu(h,dd); 
+            Bsigma(h,d) = sqrt( Dsigma(dd)^2 + Hsigma(h,dd)^2 ); 
+        end
+    end
+    
+%     Bmu_test = repmat(Dmu,Nh,1) + Hmu;
+%     Bmu_test = repmat(Bmu_test,1,4);
+%     Bsigma_test = sqrt( repmat(Dsigma,Nh,1).^2 + Hsigma.^2 );
+%     Bsigma_test = repmat(Bsigma_test,1,4);
+%     assert ( isequal(Bmu,Bmu_test) );
+%     assert ( isequal(Bsigma,Bsigma_test) );
+    
+function [mu, sigma] = get_post_para(X, mu_0, sigma_0)
+    var_0 = sigma_0 ^ 2;
+    var_n = var(X(:));
+    N = numel(X);
+    var_ = ( 1/var_0 + N/var_n )^-1;
+    mu = ( mu_0/var_0 + sum(X(:))/var_n ) * var_;
+    sigma = sqrt(var_);
+
+function data = generate_base(D,H)
+    data = repmat(D,96,1);
+    data = data+ H;
