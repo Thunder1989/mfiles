@@ -36,7 +36,7 @@ switch EQUIV(1) % h(t)
 end;
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
-N=round(N);
+% N=round(N);
 % N=N-min(min(N));
 % N = raw2count(N,1);
 % events = zeros(size(N));
@@ -46,8 +46,6 @@ M=[.99,.5;.01,.5];
 % xs = 0:80;
 Nd=7; Nh=size(N,1);
 samples.L = zeros([size(L),Niter]);
-samples.D = zeros([1,Nd,Niter]);
-samples.H = zeros([Nh,Nd,Niter]);
 samples.Z = zeros([size(Z),Niter]);
 samples.PE = zeros([2,numel(N),Niter]);
 samples.M  = zeros([size(M),Niter]);
@@ -58,20 +56,11 @@ samples.logp_NgLZ = zeros(1,Niter);
 
 % MAIN LOOP: MCMC FOR INFERENCE
 for iter=1:Niter+Nburn,
-    [Bmu,Bsigma] = draw_L_N0(N0,priors,EQUIV);
-%   figure; hold on; %for debugging mu^B output
-%   plot(reshape(generate_base(D,H),1,[]),'k');
-%   plot(reshape(N0,[],4));
-%   fprintf('test delta eta');
-%   pause
-
-    [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,M,priors);
+    [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,priors,EQUIV);
+    [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,priors);
     M = draw_M_Z(Z,priors);
   
   if (iter > Nburn)
-    samples.L(:,:,iter-Nburn) = L;
-    samples.D(:,:,iter-Nburn) = D;
-    samples.H(:,:,iter-Nburn) = H;
     samples.Z(:,:,iter-Nburn) = Z;
     samples.PE(:,:,iter-Nburn) = PE;    samples.M(:,:,iter-Nburn) = M;
     samples.N0(:,:,iter-Nburn) = N0; samples.NE(:,:,iter-Nburn) = NE;
@@ -228,27 +217,33 @@ function lnp = explnpdf(X,L)
     lnp = log(exppdf(X,L));
 
 %% SAMPLING FUNCTIONS
-function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,M,prior)
+function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,prior)
     N0=N; NE=0*N; Z=0*N; ep=1e-50;
-    
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % FIRST SAMPLE Z, N0, NE:
     PRIOR = M^100 * [1;0]; pe=zeros(2,numel(N)); p=zeros(2,numel(N));
 
     %emission probability
     for t=1:numel(N),
-        Bmu_t = Bmu(t);  
-        Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2);
-
+        t
+        N(t)
+        Bmu_t = Bmu(t)
+        Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2 )
+        
         pe(1,t) = normpdf(N(t), Bmu_t, Bsigma_t) + ep; %z_t=0
 %         figure(333);hist(exppdf(0:N(t),L(t)),10,'replace');
 %         figure(333);hist(nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)),20,'replace');
         
-        sigma1 = Bsigma_t; sigma2 = sqrt( prior.Esigma^2 + prior.sigma0^2);
-        mu12 = ( (N(t)-Bmu_t)*sigma2^2 + prior.mu0*simg1^2 ) / (sigma1^2 + sigma2^2);
-        sigma12 = sigma1^2*sigma2^2/ (sigma1^2+sigma2^2);
-        pe(2,t) = 1/(2*pi*sigma1*sigma2) * exp(- (N(t)-Bmu_t-prior.mu0)^2 / 2*(simga1^2+sigma2^2) ) ...
+        sigma1 = Bsigma_t; sigma2 = sqrt( prior.Esigma^2 + Sigma0^2 );
+        mu12 = ( (N(t)-Bmu_t)*sigma2^2 + Mu0*sigma1^2 ) / (sigma1^2 + sigma2^2)
+        sigma12 = sqrt( sigma1^2*sigma2^2/ (sigma1^2+sigma2^2) )
+        pe(2,t) = 1/(2*pi*sigma1*sigma2) ...
+            * exp( -(N(t)-Bmu_t-prior.mu0)^2 / 2*(sigma1^2+sigma2^2) ) ...
             * normcdf(N(t), mu12, sigma12);
+%         q1 = 1/(2*pi*sigma1*sigma2)
+        q2 = -(N(t)-Bmu_t-prior.mu0)^2 / 2*(sigma1^2+sigma2^2)
+        q3 = normcdf(N(t), mu12, sigma12)
     end;
     
     % Compute forward posterior marginals
@@ -261,15 +256,15 @@ function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,M,prior)
 
     % BACKWARD SAMPLING
     for t=numel(N):-1:1
-        if (rand(1) > p(1,t)),                          % if event at time t
+        if (rand(1) > p(1,t)),  % if event at time t
             if (N(t)~=-1)
-                Z(t)=1; 
-                % likelihood of all possible event/normal combinations (all
-                % possible values of N(E)
-                ptmp = poisslnpdf(0:steplen:N(t),L(t)) + nbinlnpdf(N(t):-steplen:0,prior.aE,prior.bE/(1+prior.bE)); 
-                ptmp=exp(ptmp); ptmp=ptmp/sum(ptmp);
-                N0(t) = steplen * ( find(cumsum(ptmp) >= rand(1),1) - 1 ); % draw sample of N0
-                NE(t) = N(t) - N0(t);                             % and compute NE
+                Z(t)=1;
+                Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2);
+                sigma1 = Bsigma_t; sigma2 = sqrt( prior.Esigma^2 + Sigma0^2);
+                mu12 = ( (N(t)-Bmu_t)*sigma2^2 + Mu0*sigma1^2 ) / (sigma1^2 + sigma2^2);
+                sigma12 = sigma1^2*sigma2^2/ (sigma1^2+sigma2^2);
+                N0(t) = normrnd(mu12, sigma12); % draw sample of N0
+                NE(t) = N(t) - N0(t);
             else
                 Z(t)=1; N0(t)=poissrnd(L(t)); NE(t)=nbinrnd(prior.aE,prior.bE/(1+prior.bE));
             end
@@ -293,10 +288,17 @@ function [M] = draw_M_Z(Z,prior)
     z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
     M = [1-z0, z1; z0, 1-z1];
 
-function [Bmu,Bsigma] = draw_L_N0(N0,prior,EQUIV)
+function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,prior,EQUIV)
     Nd=7;   Nh=size(N0,1);
+    NE = N - N0;
     Bmu = zeros(size(N0));
     Bsigma = zeros(size(N0));
+    
+    %update mu0, sigma0
+%     assert ( ~isempty(find(NE~=0,1)))
+    [mu, sigma] = get_post_para(NE, prior.mu0, prior.sigma0);
+    Mu0 = mu
+    Sigma0 = sigma
     
     %DAY EFFECT
     Dmu = zeros(1,Nd);
@@ -319,7 +321,7 @@ function [Bmu,Bsigma] = draw_L_N0(N0,prior,EQUIV)
             Hsigma(h,d) = sigma;
         end  
     end
-  
+       
     %TBD: enforce paramter sharing between days
     switch EQUIV(1)
         case 1,
@@ -342,6 +344,16 @@ function [Bmu,Bsigma] = draw_L_N0(N0,prior,EQUIV)
         end
     end
     
+    %test block
+    subplot(2,1,1)
+    hold on
+    plot(reshape(N,1,[]),'r')
+    plot(reshape(Bmu,1,[]),'k')
+    subplot(2,1,2)
+    plot(reshape(Bsigma,1,[]),'k')
+    pause
+%     plot(reshape(repmat(Dmu,Nh,1) + Hmu,1,[]),'k')
+%     HeatMap(sqrt( repmat(Dsigma,Nh,1).^2 + Hsigma.^2 ))
 %     Bmu_test = repmat(Dmu,Nh,1) + Hmu;
 %     Bmu_test = repmat(Bmu_test,1,4);
 %     Bsigma_test = sqrt( repmat(Dsigma,Nh,1).^2 + Hsigma.^2 );
@@ -350,8 +362,9 @@ function [Bmu,Bsigma] = draw_L_N0(N0,prior,EQUIV)
 %     assert ( isequal(Bsigma,Bsigma_test) );
     
 function [mu, sigma] = get_post_para(X, mu_0, sigma_0)
+    ep = 10e-20;
     var_0 = sigma_0 ^ 2;
-    var_n = var(X(:));
+    var_n = var(X(:)) + ep;
     N = numel(X);
     var_ = ( 1/var_0 + N/var_n )^-1;
     mu = ( mu_0/var_0 + sum(X(:))/var_n ) * var_;
