@@ -62,8 +62,8 @@ Bsigma = repmat(Bsigma,1,4);
 Mu0 = priors.mu0;
 Sigma0 = priors.sigma0;
 for iter=1:Niter+Nburn,
-    [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,priors);
-    [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,priors,EQUIV);
+    [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,Mu0,Sigma0,priors,EQUIV); %M step
+    [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,priors); %E step
     M = draw_M_Z(Z,priors);
   
   if (iter > Nburn)
@@ -228,7 +228,7 @@ function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,prior)
 
     PRIOR = log( M^100 * [1;0] ); 
     M = log(M);
-    pe=zeros(2,numel(N)); p=zeros(2,numel(N));
+    pe=zeros(2,numel(N)); a=zeros(2,numel(N));
     %emission probability
     for t=1:numel(N)
         Bmu_t = Bmu(t);
@@ -254,11 +254,11 @@ function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,prior)
 %     plot(pe(2,:),'k')
     
     % Compute forward posterior marginals
-    p(:,1) = PRIOR + pe(:,1); 
+    a(:,1) = PRIOR + pe(:,1); 
     %p(:,1) = p(:,1)/sum(p(:,1));
     for t=2:numel(N)
-        p(1,t) = logsumexp( M(1,:) + p(:,t-1)' ) + pe(1,t); 
-        p(2,t) = logsumexp( M(2,:) + p(:,t-1)' ) + pe(2,t); 
+        a(1,t) = logsumexp( M(1,:) + a(:,t-1)' ) + pe(1,t); 
+        a(2,t) = logsumexp( M(2,:) + a(:,t-1)' ) + pe(2,t); 
     end
 %     assert ( ~isempty(find(p(2,:)==1)) )
 
@@ -267,19 +267,24 @@ function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,prior)
     b(:,end) = [0;0]; 
     for t=numel(N)-1:-1:1
         b(1,t) = logsumexp( M(:,1) + b(:,t+1) + pe(:,t+1) ); 
-%         p(1,t) = p(1,t) + b(1,t);
         b(2,t) = logsumexp( M(:,2) + b(:,t+1) + pe(:,t+1) ); 
-%         p(2,t) = p(2,t) + b(2,t);
     end
+    
+    p = a + b;
+    norm = logsumexp(p);
+    p(1,:) = p(1,:) - norm;
+    p(2,:) = p(2,:) - norm;
+
     figure
-    hold on
-    plot(b(1,:),'r')
-    plot(b(2,:),'k')
-    pause    
+    subplot(2,1,1)
+    plot(p(1,:),'r')
+    subplot(2,1,2)
+    plot(p(2,:),'k')
+    pause
     
     % TBD: sampling
     for t=numel(N):-1:1
-        if (rand(1) > p(1,t)),  % if event at time t
+        if ( log(rand(1)) > p(1,t)),  % if event at time t
             if (N(t)~=-1)
                 Z(t)=1;
                 Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2);
@@ -298,11 +303,10 @@ function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,prior)
                 Z(t)=0; N0(t)=poissrnd(L(t)); NE(t)=0;
             end
         end
-        ptmp = zeros(2,1); ptmp(Z(t)+1) = 1;    % merge backward influence
-        if (t>1), p(:,t-1) = p(:,t-1).*(M'*ptmp); p(:,t-1)=p(:,t-1)/sum(p(:,t-1)); end;
+%         ptmp = zeros(2,1); ptmp(Z(t)+1) = 1;    % merge backward influence
+%         if (t>1), p(:,t-1) = p(:,t-1).*(M'*ptmp); p(:,t-1)=p(:,t-1)/sum(p(:,t-1)); end;
     end
-    PE = p;
-%     assert ( isequal(N, N0));
+    PE = a;
 
 function [M] = draw_M_Z(Z,prior)
     % GIVEN Z, SAMPLE M
@@ -312,7 +316,7 @@ function [M] = draw_M_Z(Z,prior)
     z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
     M = [1-z0, z1; z0, 1-z1];
 
-function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,prior,EQUIV)
+function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,Mu0_,Sigma0_,prior,EQUIV)
     Nd=7;   Nh=size(N0,1);
     NE = N - N0;
     Bmu = zeros(size(N0));
@@ -320,9 +324,14 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,prior,EQUIV)
     
     %update mu0, sigma0
 %     assert ( ~isempty(find(NE~=0,1)))
-    [mu, sigma] = get_post_para(NE, prior.mu0, prior.sigma0);
-    Mu0 = mu;
-    Sigma0 = sigma;
+    if ~isempty(find(NE~=0,1))
+        [mu, sigma] = get_post_para(NE, prior.mu0, prior.sigma0);
+        Mu0 = mu;
+        Sigma0 = sigma;
+    else
+        Mu0 = Mu0_;
+        Sigma0 = Sigma0_;
+    end
     
     %day effect
     Dmu = zeros(1,Nd);
@@ -369,11 +378,21 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,prior,EQUIV)
     end
     
     %test block
-%     subplot(2,1,1)
+%     figure
 %     hold on
-%     plot(reshape(N,1,[]),'r')
-%     plot(reshape(Bmu,1,[]),'k')
-%     subplot(2,1,2)
+%     plot(reshape(N,1,[]),'r','LineWidth',1.5)
+%     plot(reshape(Bmu,1,[]),'k','LineWidth',1.5)
+%     plot(reshape(N,1,[]) - reshape(Bmu,1,[]),'k','LineWidth',1.5)
+%     legend('Original','Baseline','Event')
+%     day_bd = zeros(1, numel(N));
+%     day_bd(1:4*24:end) = 1*max(N(:));
+%     for t=1:numel(day_bd)
+%         if day_bd(t)==0
+%             continue
+%         end
+%         plot([t t], [-10 day_bd(t)], 'k--', 'LineWidth', 0.5);
+%     end
+%     pause    
 %     plot(reshape(Bsigma,1,[]),'k')
 %     plot(reshape(repmat(Dmu,Nh,1) + Hmu,1,[]),'k')
 %     HeatMap(sqrt( repmat(Dsigma,Nh,1).^2 + Hsigma.^2 ))
