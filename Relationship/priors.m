@@ -17,7 +17,7 @@ priors.z10 = .5*10000; priors.z11 = .5*10000;
 
 priors.Esigma = 10;
 %NE prior hyperparameter
-priors.mu0 = 5;
+priors.mu0 = 0;
 priors.sigma0 = 10;
 
 priors.MODE = 0;

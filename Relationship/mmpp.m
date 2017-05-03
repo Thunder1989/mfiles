@@ -55,9 +55,15 @@ samples.logp_NgLM = zeros(1,Niter);
 samples.logp_NgLZ = zeros(1,Niter);
 
 % MAIN LOOP: MCMC FOR INFERENCE
+Bmu = repmat(priors.Dmu,Nh,1) + priors.Hmu;
+Bmu = repmat(Bmu,1,4);
+Bsigma = sqrt( repmat(priors.Dsigma,Nh,1).^2 + priors.Hsigma.^2 );
+Bsigma = repmat(Bsigma,1,4);
+Mu0 = priors.mu0;
+Sigma0 = priors.sigma0;
 for iter=1:Niter+Nburn,
-    [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,priors,EQUIV);
     [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,priors);
+    [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,priors,EQUIV);
     M = draw_M_Z(Z,priors);
   
   if (iter > Nburn)
@@ -198,7 +204,7 @@ function p = dirpdf(X,A)			% evaluate a dirichlet distribution
 function logp = dirlnpdf(X,A)			% eval log(dirichlet)
   k = length(X); if (k==1) p=1; return; end;
   logp = sum( (A-1).*log(X) ) - sum(gammaln(A)) + gammaln(sum(A));  
-function p = poisspdf(X,L)			% poisson distribution, and use self-defined is faster than using the ones provided by matlab
+function p = poisspdf(X,L)			% poisson distribution, and is faster than the one provided by matlab
   lnp = -L -gammaln(X+1) +log(L).*X;
   p = exp(lnp);
 function lnp = poisslnpdf(X,L)			% log(poisson)
@@ -220,41 +226,58 @@ function lnp = explnpdf(X,L)
 function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,prior)
     N0=N; NE=0*N; Z=0*N; ep=1e-50;
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % FIRST SAMPLE Z, N0, NE:
-    PRIOR = M^100 * [1;0]; pe=zeros(2,numel(N)); p=zeros(2,numel(N));
-
+    PRIOR = log( M^100 * [1;0] ); 
+    M = log(M);
+    pe=zeros(2,numel(N)); p=zeros(2,numel(N));
     %emission probability
-    for t=1:numel(N),
-        t
-        N(t)
-        Bmu_t = Bmu(t)
-        Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2 )
-        
-        pe(1,t) = normpdf(N(t), Bmu_t, Bsigma_t) + ep; %z_t=0
+    for t=1:numel(N)
+        Bmu_t = Bmu(t);
+        Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2 );
+        pe(1,t) = log( normpdf(N(t), Bmu_t, Bsigma_t) ); %z_t=0
 %         figure(333);hist(exppdf(0:N(t),L(t)),10,'replace');
 %         figure(333);hist(nbinpdf(N(t):-1:0,prior.aE,prior.bE/(1+prior.bE)),20,'replace');
         
-        sigma1 = Bsigma_t; sigma2 = sqrt( prior.Esigma^2 + Sigma0^2 );
-        mu12 = ( (N(t)-Bmu_t)*sigma2^2 + Mu0*sigma1^2 ) / (sigma1^2 + sigma2^2)
-        sigma12 = sqrt( sigma1^2*sigma2^2/ (sigma1^2+sigma2^2) )
-        pe(2,t) = 1/(2*pi*sigma1*sigma2) ...
-            * exp( -(N(t)-Bmu_t-prior.mu0)^2 / 2*(sigma1^2+sigma2^2) ) ...
-            * normcdf(N(t), mu12, sigma12);
-%         q1 = 1/(2*pi*sigma1*sigma2)
-        q2 = -(N(t)-Bmu_t-prior.mu0)^2 / 2*(sigma1^2+sigma2^2)
-        q3 = normcdf(N(t), mu12, sigma12)
-    end;
+        sigma1 = Bsigma_t;
+        sigma2 = sqrt( prior.Esigma^2 + Sigma0^2 );
+        mu12 = ( (N(t)-Bmu_t)*sigma2^2 + Mu0*sigma1^2 ) / (sigma1^2 + sigma2^2);
+        sigma12 = sqrt( sigma1^2*sigma2^2/ (sigma1^2+sigma2^2) );
+%         pe(2,t) = 1/(2*pi*sigma1*sigma2) * sqrt(2*pi*sigma12^2) ...
+%             * exp( -(N(t)-Bmu_t-prior.mu0)^2 / 2*(sigma1^2+sigma2^2) ) ...
+%             * normcdf(N(t), mu12, sigma12);
+        pe(2,t) = log( 1/(2*pi*sigma1*sigma2) * sqrt(2*pi*sigma12^2) ) ...
+            + -(N(t)-Bmu_t-prior.mu0)^2 / 2*(sigma1^2+sigma2^2) ...
+            + log( normcdf(N(t), mu12, sigma12) );
+    end
+%     figure
+%     hold on
+%     plot(pe(1,:),'r')
+%     plot(pe(2,:),'k')
     
     % Compute forward posterior marginals
-    p(:,1) = PRIOR .* pe(:,1); p(:,1)=p(:,1)/sum(p(:,1));
+    p(:,1) = PRIOR + pe(:,1); 
+    %p(:,1) = p(:,1)/sum(p(:,1));
     for t=2:numel(N)
-        p(:,t) = (M*p(:,t-1)).*pe(:,t); 
-        p(:,t)=p(:,t)/sum(p(:,t)); 
+        p(1,t) = logsumexp( M(1,:) + p(:,t-1)' ) + pe(1,t); 
+        p(2,t) = logsumexp( M(2,:) + p(:,t-1)' ) + pe(2,t); 
     end
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     assert ( ~isempty(find(p(2,:)==1)) )
 
-    % BACKWARD SAMPLING
+    % backward
+    b=zeros(2,numel(N));
+    b(:,end) = [0;0]; 
+    for t=numel(N)-1:-1:1
+        b(1,t) = logsumexp( M(:,1) + b(:,t+1) + pe(:,t+1) ); 
+%         p(1,t) = p(1,t) + b(1,t);
+        b(2,t) = logsumexp( M(:,2) + b(:,t+1) + pe(:,t+1) ); 
+%         p(2,t) = p(2,t) + b(2,t);
+    end
+    figure
+    hold on
+    plot(b(1,:),'r')
+    plot(b(2,:),'k')
+    pause    
+    
+    % TBD: sampling
     for t=numel(N):-1:1
         if (rand(1) > p(1,t)),  % if event at time t
             if (N(t)~=-1)
@@ -275,10 +298,11 @@ function [Z,N0,NE,PE] = draw_Z_NLM(N,Bmu,Bsigma,Mu0,Sigma0,M,prior)
                 Z(t)=0; N0(t)=poissrnd(L(t)); NE(t)=0;
             end
         end
-        ptmp = zeros(2,1); ptmp(Z(t)+1) = 1;    % compute backward influence
+        ptmp = zeros(2,1); ptmp(Z(t)+1) = 1;    % merge backward influence
         if (t>1), p(:,t-1) = p(:,t-1).*(M'*ptmp); p(:,t-1)=p(:,t-1)/sum(p(:,t-1)); end;
     end
     PE = p;
+%     assert ( isequal(N, N0));
 
 function [M] = draw_M_Z(Z,prior)
     % GIVEN Z, SAMPLE M
@@ -297,10 +321,10 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,prior,EQUIV)
     %update mu0, sigma0
 %     assert ( ~isempty(find(NE~=0,1)))
     [mu, sigma] = get_post_para(NE, prior.mu0, prior.sigma0);
-    Mu0 = mu
-    Sigma0 = sigma
+    Mu0 = mu;
+    Sigma0 = sigma;
     
-    %DAY EFFECT
+    %day effect
     Dmu = zeros(1,Nd);
     Dsigma = zeros(1,Nd);
     Hmu = zeros(Nh,Nd);
@@ -312,7 +336,7 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,prior,EQUIV)
         [mu, sigma] = get_post_para(daysum_d, prior.Dmu(d), prior.Dsigma(d));
         Dmu(d) = mu;
         Dsigma(d) = sigma;
-        %TIME OF DAY EFFECT
+        %ToD effect
         for h=1:size(Hmu,1)   %interval
             hour_sample = N0(h,d:7:end);
             hour_sample = hour_sample - daysum_d;
@@ -335,7 +359,7 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,prior,EQUIV)
         case 3,
     end
     
-    % COMPUTE mu^B
+    % posterior hyperparameters for mu^B_t
     for d=1:size(Bmu,2)
         dd = mod(d-1,7)+1; 
         for h=1:size(Bmu,1)
@@ -345,13 +369,12 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_L_N0(N,N0,prior,EQUIV)
     end
     
     %test block
-    subplot(2,1,1)
-    hold on
-    plot(reshape(N,1,[]),'r')
-    plot(reshape(Bmu,1,[]),'k')
-    subplot(2,1,2)
-    plot(reshape(Bsigma,1,[]),'k')
-    pause
+%     subplot(2,1,1)
+%     hold on
+%     plot(reshape(N,1,[]),'r')
+%     plot(reshape(Bmu,1,[]),'k')
+%     subplot(2,1,2)
+%     plot(reshape(Bsigma,1,[]),'k')
 %     plot(reshape(repmat(Dmu,Nh,1) + Hmu,1,[]),'k')
 %     HeatMap(sqrt( repmat(Dsigma,Nh,1).^2 + Hsigma.^2 ))
 %     Bmu_test = repmat(Dmu,Nh,1) + Hmu;
@@ -369,6 +392,21 @@ function [mu, sigma] = get_post_para(X, mu_0, sigma_0)
     var_ = ( 1/var_0 + N/var_n )^-1;
     mu = ( mu_0/var_0 + sum(X(:))/var_n ) * var_;
     sigma = sqrt(var_);
+
+function s = logsumexp(x, dim)
+if nargin == 1 
+    dim = find(size(x)~=1,1);
+    if isempty(dim), dim = 1; end
+end
+
+% subtract the largest in each column
+y = max(x,[],dim);
+x = bsxfun(@minus,x,y);
+s = y + log(sum(exp(x),dim));
+i = find(~isfinite(y));
+if ~isempty(i)
+    s(i) = y(i);
+end
 
 function data = generate_base(D,H)
     data = repmat(D,96,1);
