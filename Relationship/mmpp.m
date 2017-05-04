@@ -122,7 +122,7 @@ function lnp = explnpdf(X,L)
 function [Z,X_B,PE,P_data] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior)
     X_B=X; Z=0*X; ep=1e-50;
 
-    PRIOR = log( M^100 * [1;0] ); 
+    a0 = log( M^100 * [1;0] ); %starting point for alpha
     M = log(M);
     pe=zeros(2,numel(X)); a=zeros(2,numel(X));
 
@@ -141,7 +141,7 @@ function [Z,X_B,PE,P_data] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior)
     end
     
     % forward
-    a(:,1) = PRIOR + pe(:,1); 
+    a(:,1) = a0 + pe(:,1); 
     for t=2:numel(X)
         a(1,t) = logsumexp( M(1,:) + a(:,t-1)' ) + pe(1,t); 
         a(2,t) = logsumexp( M(2,:) + a(:,t-1)' ) + pe(2,t); 
