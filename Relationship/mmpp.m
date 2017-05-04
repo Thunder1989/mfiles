@@ -186,15 +186,15 @@ function [M] = draw_M_Z(Z,prior)
     M = [1-z0, z1; z0, 1-z1];
 
 function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUIV)
-    Nd=7;   Nh=size(X_B,1);
-    NE = X - X_B;
+    Nd=7;	Nh=size(X_B,1);
+    X_E = X - X_B;
     Bmu = zeros(size(X_B));
     Bsigma = zeros(size(X_B));
     
     %update mu0, sigma0
 %     assert ( ~isempty(find(NE~=0,1)))
-    if ~isempty(find(NE~=0,1))
-        [mu, sigma] = get_post_para(NE, prior.mu0, prior.sigma0);
+    if ~isempty( find(X_E~=0,1) )
+        [mu, sigma] = get_post_para(X_E, prior.mu0, prior.sigma0);
         Mu0 = mu;
         Sigma0 = sigma;
     else
@@ -209,15 +209,15 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
     Hsigma = zeros(Nh,Nd);
     
     for d=1:length(Dmu)
-        daysum_d = sum(X_B(:,d:7:end));
-        daysum_d = daysum_d/Nh;
-        [mu, sigma] = get_post_para(daysum_d, prior.Dmu(d), prior.Dsigma(d));
+        day_sample = sum(X_B(:,d:7:end));
+        day_sample = day_sample/Nh;
+        [mu, sigma] = get_post_para(day_sample, prior.Dmu(d), prior.Dsigma(d));
         Dmu(d) = mu;
         Dsigma(d) = sigma;
         %ToD effect
         for h=1:size(Hmu,1)   %interval
             hour_sample = X_B(h,d:7:end);
-            hour_sample = hour_sample - daysum_d;
+            hour_sample = hour_sample - day_sample;
             [mu, sigma] = get_post_para(hour_sample, prior.Hmu(h,d), prior.Hsigma(h,d));
             Hmu(h,d) = mu;
             Hsigma(h,d) = sigma;
