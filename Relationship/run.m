@@ -2,13 +2,14 @@ close all
 clear
 clc
 
-T = 28; % # of days
+T = 7*52; % # of days
+W = 7*2; % # of days to plot
 Niter = 50;
 Nburn = 10;
 Nplot = 20;
 
-path_ahu = './data_ahu/';
-path_vav = './data_vav/';
+path_ahu = './all_ahu/';
+path_vav = './all_vav/';
 ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
@@ -18,7 +19,6 @@ num = length(ahus);
 ahu_dist = cell(num,1);
 ahu_list = zeros(num,1);
 prob_ahu = cell(num,1);
-base_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
 % figure
@@ -39,25 +39,26 @@ for n = 2:2
  
     data = res.Z(:,:,end);
     prob_ahu{n} = reshape(data,[],1)';
-    data = res.L(:,:,end);
-    base_ahu{n} = reshape(data,[],1)';
-    data = res.N0(:,:,end);
+    data = res.X_B(:,:,end);
     N0_ahu{n} = reshape(data,[],1)';
-    data = res.NE(:,:,end);
-    NE_ahu{n} = reshape(data,[],1)';
+    NE_ahu{n} = reshape(cur_ahu-data,[],1)';
 
     figure
-    plot(reshape(cur_ahu,1,[]),'k')
+    plot(reshape(cur_ahu(1:4*24*W),1,[]),'k')
     hold on; 
     % plot(reshape(res.N0(:,:,end),1,[]),'b')
-    plot(reshape(res.N0(:,:,end),1,[]),'r')
-    day_bd = zeros(1, numel(cur_ahu));
+    plot(reshape(NE_ahu{n}(1:4*24*W),1,[]),'r')
+    day_bd = zeros(1, 4*24*W);
     day_bd(1:4*24:end) = 1*max(cur_ahu(:));
     for t=1:numel(day_bd)
-        plot([t t], [0 day_bd(t)], 'b--', 'LineWidth', 1.5);
+        if day_bd(t)==0
+            continue
+        end
+        plot([t t], [-10 day_bd(t)], 'k--', 'LineWidth', 0.5);
     end
     fn = sprintf('ahu_%d.png',n);
-    saveas(gcf,fn);
+    saveas(gcf,fn);    
+
 end
 
 
@@ -68,7 +69,6 @@ end
 num = length(vavs);
 num = 9;
 prob_vav = cell(num,1);
-base_vav = cell(num,1);
 N0_vav = cell(num,1);
 NE_vav = cell(num,1);
 
@@ -85,8 +85,6 @@ for m = 1:num
     res = mmpp(cur_vav, priors, [Niter,Nburn,Nplot], event_times, [3,3]);
     data = res.Z(:,:,end);
     prob_vav{m} = reshape(data,[],1)';
-    data = res.L(:,:,end);
-    base_vav{m} = reshape(data,[],1)';
     data = res.N0(:,:,end);
     N0_vav{m} = reshape(data,[],1)';
     data = res.NE(:,:,end);
