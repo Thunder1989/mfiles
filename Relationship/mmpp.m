@@ -36,10 +36,8 @@ switch EQUIV(1) % h(t)
 end;
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
-% N = raw2count(N,1);
 Z=zeros(size(X)); X_B=max(X,1); 
 M=[.99,.5;.01,.5]; 
-% M=[0.75 0.25; 0.25 0.75];
 Nd=7; Nh=size(X,1); Nw=size(X,2)/7;
 samples.Z = zeros([size(Z),Niter]);
 samples.M  = zeros([size(M),Niter]);
@@ -70,52 +68,7 @@ end
 figure
 plot(samples.P_data,'k','LineWidth',2);
 
-%Function for converting raw data to count data 
-function count = raw2count(N, base)
-hr = 2;
-sample_freq = 4;
-mean_day = mean(N);
-Nd = size(N,2);
-mean_day = repmat(mean_day, size(N,1)/(hr*sample_freq), 1);
-mean_day = reshape(mean_day, 1, []); %comparison base
-switch base
-    case 1,
-        N = reshape(N, sample_freq * hr, []);
-        count = zeros(size(mean_day));
-        for i=1:size(N,2)
-            count(i) = sum( N(:,i)>=mean_day(i) );
-        end
-        count = reshape(count, [], Nd);
-    case 2, 
-end
-
-%% MISC PDF FUNCTIONS
-function p = dirpdf(X,A)			% evaluate a dirichlet distribution
-  k = length(X); if (k==1) p=1; return; end;
-  logp = sum( (A-1).*log(X) ) - sum(gammaln(A)) + gammaln(sum(A));
-  p = exp(logp);  
-function logp = dirlnpdf(X,A)			% eval log(dirichlet)
-  k = length(X); if (k==1) p=1; return; end;
-  logp = sum( (A-1).*log(X) ) - sum(gammaln(A)) + gammaln(sum(A));  
-function p = poisspdf(X,L)			% poisson distribution, and is faster than the one provided by matlab
-  lnp = -L -gammaln(X+1) +log(L).*X;
-  p = exp(lnp);
-function lnp = poisslnpdf(X,L)			% log(poisson)
-  lnp = -L -gammaln(X+1) +log(L).*X;
-function p = nbinpdf(X,R,P)			% negative binomial distribution
-  lnp = gammaln(X+R)-gammaln(R)-gammaln(X+1)+log(P).*R+log(1-P).*X;
-  p = exp(lnp);
-function lnp = nbinlnpdf(X,R,P)			% log(neg binomial)
-  lnp = gammaln(X+R)-gammaln(R)-gammaln(X+1)+log(P).*R+log(1-P).*X;
-function p = lomaxpdf(X,L,A) %L is scale, A is shape
-    p = A/L * (1+X/L) .^ (-A-1);
-function lnp = lomaxlnpdf(X,L,A) %L is scale, A is shape
-    p = A/L * (1+X/L) .^ (-A-1);
-    lnp = log(p);
-function lnp = explnpdf(X,L)
-    lnp = log(exppdf(X,L));
-
-%% SAMPLING FUNCTIONS
+%% E step
 function [Z,X_B,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_start)
     X_B=X; Z=0*X; ep=1e-50;
 
@@ -154,6 +107,7 @@ function [Z,X_B,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_star
         b(2,t) = logsumexp( M(:,2) + b(:,t+1) + pe(:,t+1) ); 
     end
     
+    % merge and normalize
     p = a + b;
 %     norm = logsumexp(p);
 %     assert ( isequal(bsxfun(@minus, p, norm), bsxfun(@minus, p, p_data) ));
@@ -171,18 +125,19 @@ function [Z,X_B,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_star
             sigma12 = sigma1^2*sigma2^2 / (sigma1^2+sigma2^2);
             X_B(t) = normrnd(mu12, sigma12); % sampling X_B
         else
-            Z(t)=0; % no event
+            Z(t)=0; X_B(t)=X(t); % no event
         end
     end
 
+%% GIVEN Z, SAMPLE M
 function [M] = draw_M_Z(Z,prior)
-    % GIVEN Z, SAMPLE M
     n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0));
     n10 = length(find(Z(1:end-1)==1 & Z(2:end)==0)); n1=length(find(Z(1:end-1)==1));
     z0 = betarnd(n01+prior.z01, n0-n01+prior.z00);
     z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
     M = [1-z0, z1; z0, 1-z1];
 
+%% M step
 function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUIV)
     Nd=7;	Nh=size(X_B,1);
     X_E = X - X_B;
@@ -250,7 +205,8 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
 %     Bsigma_test = repmat(Bsigma_test,1,4);
 %     assert ( isequal(Bmu,Bmu_test) );
 %     assert ( isequal(Bsigma,Bsigma_test) );
-    
+
+%compute posterior hyperparameters
 function [mu, sigma] = get_post_para(X, mu_0, sigma_0)
     ep = 10e-20;
     var_0 = sigma_0 ^ 2;
