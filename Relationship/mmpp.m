@@ -142,7 +142,7 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
     Nd=7;	Nh=size(X_B,1);
     X_E = X - X_B;
     
-    %update mu_E, sigma_E
+    %compute posterior hyperparameters for mu_E
 %     assert ( ~isempty(find(NE~=0,1)))
     if ~isempty( find(X_E~=0,1) )
         [mu, sigma] = get_post_para(X_E, prior.mu0, prior.sigma0);
@@ -153,7 +153,7 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
         Sigma0 = Sigma0_;
     end
     
-    %compute posterior hyperparameters for mu_B, sigma_B
+    %compute posterior hyperparameters for mu_B(t)
     Hmu = zeros(Nh,Nd);
     Hsigma = zeros(Nh,Nd);
     for d=1:size(Hmu,2) %day
