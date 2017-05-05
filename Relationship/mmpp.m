@@ -42,7 +42,6 @@ M=[.99,.5;.01,.5];
 % M=[0.75 0.25; 0.25 0.75];
 Nd=7; Nh=size(X,1); Nw=size(X,2)/7;
 samples.Z = zeros([size(Z),Niter]);
-samples.PE = zeros([2,numel(X),Niter]);
 samples.M  = zeros([size(M),Niter]);
 samples.X_B = zeros([size(X_B),Niter]);
 samples.logp_NgLM = zeros(1,Niter); 
@@ -50,22 +49,19 @@ samples.logp_NgLZ = zeros(1,Niter);
 samples.P_data = zeros(1,Niter);
 
 % MAIN LOOP: MCMC FOR INFERENCE
-Bmu = repmat(priors.Dmu,Nh,1) + priors.Hmu;
-Bmu = repmat(Bmu,1,Nw);
-Bsigma = sqrt( repmat(priors.Dsigma,Nh,1).^2 + priors.Hsigma.^2 );
-Bsigma = repmat(Bsigma,1,Nw);
+Bmu = repmat(priors.Hmu,1,Nw);
+Bsigma = repmat(priors.Hsigma,1,Nw);
 Mu0 = priors.mu0;
 Sigma0 = priors.sigma0;
 A0 = log( M^100 * [1;0] );
 for iter=1:Niter+Nburn
-    [Z,X_B,PE,P_data,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
+    [Z,X_B,P_data,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
     [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0,Sigma0,priors,EQUIV); %M step
     M = draw_M_Z(Z,priors);
     samples.P_data(iter) = P_data;
     
   if (iter > Nburn)
     samples.Z(:,:,iter-Nburn) = Z;
-    samples.PE(:,:,iter-Nburn) = PE;    
     samples.M(:,:,iter-Nburn) = M;
     samples.X_B(:,:,iter-Nburn) = X_B;
   end
@@ -120,7 +116,7 @@ function lnp = explnpdf(X,L)
     lnp = log(exppdf(X,L));
 
 %% SAMPLING FUNCTIONS
-function [Z,X_B,PE,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_start)
+function [Z,X_B,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_start)
     X_B=X; Z=0*X; ep=1e-50;
 
     a0 = A_start; %starting point for alpha
@@ -135,23 +131,24 @@ function [Z,X_B,PE,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_s
         
         sigma1 = Bsigma_t;
         sigma2 = sqrt( prior.Esigma^2 + Sigma0^2 );
-        mu12 = ( (X(t)-Bmu_t)*sigma2^2 + Mu0*sigma1^2 ) / (sigma1^2 + sigma2^2);
         sigma12 = sqrt( sigma1^2*sigma2^2 / (sigma1^2+sigma2^2) );
         pe(2,t) = log( 1/(2*pi*sigma1*sigma2) * sqrt(2*pi*sigma12^2) ) ...
-            + -(X(t)-Bmu_t-prior.mu0)^2 / 2*(sigma1^2+sigma2^2);
+            + -(X(t)-Bmu_t-Mu0)^2 / 2*(sigma1^2+sigma2^2);
     end
     
     % forward
     a(:,1) = a0 + pe(:,1); 
+    % for t=2,...N, we compute \alpha(t,k) = pe(t,k) * \sum_{j} M_jk * \alpha(t-1,j) 
     for t=2:numel(X)
         a(1,t) = logsumexp( M(1,:) + a(:,t-1)' ) + pe(1,t); 
         a(2,t) = logsumexp( M(2,:) + a(:,t-1)' ) + pe(2,t); 
     end
-    P_data = logsumexp( [a(1,end), a(2,end)] );
+    P_data = logsumexp( a(:,end) );
 
     % backward
     b=zeros(2,numel(X));
     b(:,end) = [0;0]; 
+    % for t=N-1,...1, we compute \beta(t,k) = \sum_{j} M_kj * \beta(t+1,j) * pe(t+1,j)
     for t=numel(X)-1:-1:1
         b(1,t) = logsumexp( M(:,1) + b(:,t+1) + pe(:,t+1) ); 
         b(2,t) = logsumexp( M(:,2) + b(:,t+1) + pe(:,t+1) ); 
@@ -167,17 +164,16 @@ function [Z,X_B,PE,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_s
     for t=numel(X):-1:1
         if ( log(rand(1)) > p(1,t))	% if event at time t
             Z(t)=1;
+            Bmu_t = Bmu(t);
             Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2);
             sigma1 = Bsigma_t; sigma2 = sqrt( prior.Esigma^2 + Sigma0^2);
             mu12 = ( (X(t)-Bmu_t)*sigma2^2 + Mu0*sigma1^2 ) / (sigma1^2 + sigma2^2);
             sigma12 = sigma1^2*sigma2^2 / (sigma1^2+sigma2^2);
             X_B(t) = normrnd(mu12, sigma12); % sampling X_B
         else
-            Z(t)=0; X_B(t)=X(t);           % no event
+            Z(t)=0; % no event
         end
     end
-%     fprintf('# of events is %d\n', sum(Z==1));
-    PE = a;  
 
 function [M] = draw_M_Z(Z,prior)
     % GIVEN Z, SAMPLE M
@@ -190,10 +186,8 @@ function [M] = draw_M_Z(Z,prior)
 function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUIV)
     Nd=7;	Nh=size(X_B,1);
     X_E = X - X_B;
-    Bmu = zeros(size(X_B));
-    Bsigma = zeros(size(X_B));
     
-    %update mu0, sigma0
+    %update mu_E, sigma_E
 %     assert ( ~isempty(find(NE~=0,1)))
     if ~isempty( find(X_E~=0,1) )
         [mu, sigma] = get_post_para(X_E, prior.mu0, prior.sigma0);
@@ -204,28 +198,20 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
         Sigma0 = Sigma0_;
     end
     
-    %day effect
-    Dmu = zeros(1,Nd);
-    Dsigma = zeros(1,Nd);
+    %compute posterior hyperparameters for mu_B, sigma_B
     Hmu = zeros(Nh,Nd);
     Hsigma = zeros(Nh,Nd);
-    
-    for d=1:length(Dmu)
-        day_sample = sum(X_B(:,d:7:end));
-        day_sample = day_sample/Nh;
-        [mu, sigma] = get_post_para(day_sample, prior.Dmu(d), prior.Dsigma(d));
-        Dmu(d) = mu;
-        Dsigma(d) = sigma;
-        %ToD effect
+    for d=1:size(Hmu,2) %day
         for h=1:size(Hmu,1)   %interval
             hour_sample = X_B(h,d:7:end);
-            hour_sample = hour_sample - day_sample;
             [mu, sigma] = get_post_para(hour_sample, prior.Hmu(h,d), prior.Hsigma(h,d));
             Hmu(h,d) = mu;
             Hsigma(h,d) = sigma;
-        end  
+        end
     end
-       
+    Bmu = repmat(Hmu,1,size(X_B,2)/7);
+    Bsigma = repmat(Hsigma,1,size(X_B,2)/7);
+
     %TBD: enforce paramter sharing between days
     switch EQUIV(1)
         case 1,
@@ -237,16 +223,7 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
         case 1,
         case 2,
         case 3,
-    end
-    
-    % posterior hyperparameters for mu^B_t
-    for d=1:size(Bmu,2)
-        dd = mod(d-1,7)+1; 
-        for h=1:size(Bmu,1)
-            Bmu(h,d) = Dmu(dd) + Hmu(h,dd); 
-            Bsigma(h,d) = sqrt( Dsigma(dd)^2 + Hsigma(h,dd)^2 ); 
-        end
-    end
+    end    
     
     %test block
 %     figure

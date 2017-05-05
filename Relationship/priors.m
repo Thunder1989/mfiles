@@ -1,11 +1,7 @@
 function priors = sensorPriors
 % returns a structure of prior parameters for the MMPP code
 
-priors.Bsigma = 10;	%X^B sigma
-
-%day prior hyperparameter
-priors.Dmu = zeros(1,7);	
-priors.Dsigma = zeros(1,7)+10;
+priors.Bsigma = 1;	%X^B sigma
 
 %ToD prior hyperparameter
 priors.Hmu = zeros(4*24,7);

@@ -4,7 +4,7 @@ clc
 
 T = 7*52; % # of days
 W = 7*2; % # of days to plot
-Niter = 50;
+Niter = 40;
 Nburn = 10;
 Nplot = 20;
 
