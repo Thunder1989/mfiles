@@ -40,7 +40,7 @@ fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n
 Z=zeros(size(X)); X_B=max(X,1); 
 M=[.99,.5;.01,.5]; 
 % M=[0.75 0.25; 0.25 0.75];
-Nd=7; Nh=size(X,1);
+Nd=7; Nh=size(X,1); Nw=size(X,2)/7;
 samples.Z = zeros([size(Z),Niter]);
 samples.PE = zeros([2,numel(X),Niter]);
 samples.M  = zeros([size(M),Niter]);
@@ -51,14 +51,15 @@ samples.P_data = zeros(1,Niter);
 
 % MAIN LOOP: MCMC FOR INFERENCE
 Bmu = repmat(priors.Dmu,Nh,1) + priors.Hmu;
-Bmu = repmat(Bmu,1,4);
+Bmu = repmat(Bmu,1,Nw);
 Bsigma = sqrt( repmat(priors.Dsigma,Nh,1).^2 + priors.Hsigma.^2 );
-Bsigma = repmat(Bsigma,1,4);
+Bsigma = repmat(Bsigma,1,Nw);
 Mu0 = priors.mu0;
 Sigma0 = priors.sigma0;
-for iter=1:Niter+Nburn,
+A0 = log( M^100 * [1;0] );
+for iter=1:Niter+Nburn
+    [Z,X_B,PE,P_data,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
     [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0,Sigma0,priors,EQUIV); %M step
-    [Z,X_B,PE,P_data] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors); %E step
     M = draw_M_Z(Z,priors);
     samples.P_data(iter) = P_data;
     
@@ -67,8 +68,8 @@ for iter=1:Niter+Nburn,
     samples.PE(:,:,iter-Nburn) = PE;    
     samples.M(:,:,iter-Nburn) = M;
     samples.X_B(:,:,iter-Nburn) = X_B;
-  end;
-end;
+  end
+end
 
 figure
 plot(samples.P_data,'k','LineWidth',2);
@@ -119,10 +120,10 @@ function lnp = explnpdf(X,L)
     lnp = log(exppdf(X,L));
 
 %% SAMPLING FUNCTIONS
-function [Z,X_B,PE,P_data] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior)
+function [Z,X_B,PE,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_start)
     X_B=X; Z=0*X; ep=1e-50;
 
-    a0 = log( M^100 * [1;0] ); %starting point for alpha
+    a0 = A_start; %starting point for alpha
     M = log(M);
     pe=zeros(2,numel(X)); a=zeros(2,numel(X));
 
@@ -160,7 +161,8 @@ function [Z,X_B,PE,P_data] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior)
 %     norm = logsumexp(p);
 %     assert ( isequal(bsxfun(@minus, p, norm), bsxfun(@minus, p, p_data) ));
     p = bsxfun(@minus, p, P_data); %normalization
-  
+    A0 = p(:,1);
+
     % sampling
     for t=numel(X):-1:1
         if ( log(rand(1)) > p(1,t))	% if event at time t
@@ -174,7 +176,7 @@ function [Z,X_B,PE,P_data] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior)
             Z(t)=0; X_B(t)=X(t);           % no event
         end
     end
-    fprintf('# of events is %d\n', sum(Z==1));
+%     fprintf('# of events is %d\n', sum(Z==1));
     PE = a;  
 
 function [M] = draw_M_Z(Z,prior)
