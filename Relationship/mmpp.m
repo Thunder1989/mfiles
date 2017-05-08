@@ -45,6 +45,8 @@ samples.X_B = zeros([size(X_B),Niter]);
 samples.logp_NgLM = zeros(1,Niter); 
 samples.logp_NgLZ = zeros(1,Niter);
 samples.P_data = zeros(1,Niter);
+samples.P_Z = zeros([2,numel(X),Niter]);
+samples.P_E = zeros([2,numel(X),Niter]);
 
 % MAIN LOOP: MCMC FOR INFERENCE
 Bmu = repmat(priors.Hmu,1,Nw);
@@ -53,10 +55,13 @@ Mu0 = priors.mu0;
 Sigma0 = priors.sigma0;
 A0 = log( M^100 * [1;0] );
 for iter=1:Niter+Nburn
-    [Z,X_B,P_data,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
+    iter
+    [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
     [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0,Sigma0,priors,EQUIV); %M step
     M = draw_M_Z(Z,priors);
     samples.P_data(iter) = P_data;
+    samples.P_Z(:,:,iter) = P_Z;
+    samples.P_E(:,:,iter) = P_E;
     
   if (iter > Nburn)
     samples.Z(:,:,iter-Nburn) = Z;
@@ -65,11 +70,14 @@ for iter=1:Niter+Nburn
   end
 end
 
+gen_movie(samples.P_Z,'event');
+gen_movie(samples.P_E,'emission');
+
 figure
 plot(samples.P_data,'k','LineWidth',2);
 
 %% E step
-function [Z,X_B,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_start)
+function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_start)
     X_B=X; Z=0*X; ep=1e-50;
 
     a0 = A_start; %starting point for alpha
@@ -128,6 +136,8 @@ function [Z,X_B,P_data, A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_star
             Z(t)=0; X_B(t)=X(t); % no event
         end
     end
+    P_Z = p;
+    P_E = pe;
 
 %% GIVEN Z, SAMPLE M
 function [M] = draw_M_Z(Z,prior)
@@ -183,9 +193,11 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
     %test block
 %     figure
 %     hold on
-%     plot(reshape(N,1,[]),'r','LineWidth',1.5)
+%     plot(reshape(X,1,[]),'r','LineWidth',1.5)
 %     plot(reshape(Bmu,1,[]),'k','LineWidth',1.5)
-%     plot(reshape(N,1,[]) - reshape(Bmu,1,[]),'k','LineWidth',1.5)
+%     plot(reshape(Bsigma,1,[]),'b','LineWidth',1)
+%     pause
+%     plot(reshape(X,1,[]) - reshape(Bmu,1,[]),'k','LineWidth',1.5)
 %     legend('Original','Baseline','Event')
 %     day_bd = zeros(1, numel(N));
 %     day_bd(1:4*24:end) = 1*max(N(:));
@@ -195,10 +207,6 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
 %         end
 %         plot([t t], [-10 day_bd(t)], 'k--', 'LineWidth', 0.5);
 %     end
-%     pause    
-%     plot(reshape(Bsigma,1,[]),'k')
-%     plot(reshape(repmat(Dmu,Nh,1) + Hmu,1,[]),'k')
-%     HeatMap(sqrt( repmat(Dsigma,Nh,1).^2 + Hsigma.^2 ))
 %     Bmu_test = repmat(Dmu,Nh,1) + Hmu;
 %     Bmu_test = repmat(Bmu_test,1,4);
 %     Bsigma_test = sqrt( repmat(Dsigma,Nh,1).^2 + Hsigma.^2 );
@@ -231,3 +239,28 @@ i = find(~isfinite(y));
 if ~isempty(i)
     s(i) = y(i);
 end
+
+function gen_movie(y, name)
+ % Set up the movie.
+fn = sprintf('%s.avi',name);
+writerObj = VideoWriter(fn); 
+writerObj.FrameRate = 1; % frames per second.
+open(writerObj); 
+
+W = 7*2;
+% fid = figure;
+for i=1:size(y,3)
+%     pause(0.1);
+    figure
+    hold on
+    y_tmp = y(:,:,i);
+    plot(y_tmp(1,1:4*24*W),'r','LineWidth',1.5);
+    plot(y_tmp(2,1:4*24*W),'k','LineWidth',1.5);
+    title(sprintf('iter %d',i))
+%     if mod(i,4)==0, % Uncomment to take 1 out of every 4 frames.
+        frame = getframe(gcf); % 'gcf' can handle if you zoom in to take a movie.
+        writeVideo(writerObj, frame);
+%     end
+ 
+end
+close(writerObj); % Saves the movie.

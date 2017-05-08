@@ -8,6 +8,7 @@
 *.csv
 *.mat
 *.R
+*.avi
 
 /voice/*
 !/Relationship/data*/*
