@@ -37,7 +37,7 @@ end;
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
 Z=zeros(size(X)); X_B=max(X,1); 
-M=[.99,.5;.01,.5]; 
+M=[.99,.5;.01,.5]; %[p00, p10; p01, p11]
 Nd=7; Nh=size(X,1); Nw=size(X,2)/7;
 samples.Z = zeros([size(Z),Niter]);
 samples.M  = zeros([size(M),Niter]);
