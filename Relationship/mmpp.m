@@ -39,21 +39,21 @@ fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n
 %------priors--------
 priors = struct();
 
-priors.Bsigma = 1;	%X_B sigma
-priors.Esigma = 1;  %X_E sigma
+priors.sigma_B = 1;	%X_B sigma
+priors.sigma_E = 1;  %X_E sigma
 
 %X_B prior hyperparameter
-priors.Hmu = zeros(4*24,7);
-priors.Hsigma = zeros(4*24,7)+10;
+priors.mu_h = zeros(4*24,7);
+priors.sigma_h = zeros(4*24,7)+10;
 %X_E prior hyperparameter
-priors.mu0 = 0;
-priors.sigma0 = 10;
+priors.mu_0 = 0;
+priors.sigma_0 = 10;
 
 %transition prior hyperparameter
-priors.z01 = .01*10000; priors.z00 = .99*10000;     % z(t) event process
-priors.z10 = .1*10000; priors.z11 = .9*10000;     
+priors.z01 = .01*10000; priors.z00 = .99*10000;	% z(t) event process
+priors.z10 = .1*10000; priors.z11 = .9*10000;
 
-priors.MODE = 0;
+% priors.MODE = 0;
 %---------------------
 
 Z=zeros(size(X)); X_B=max(X,1); 
@@ -67,10 +67,10 @@ samples.P_Z = zeros([2,numel(X),Niter]);
 samples.P_E = zeros([2,numel(X),Niter]);
 
 % MAIN LOOP: MCMC FOR INFERENCE
-Bmu = repmat(priors.Hmu,1,Nw);
-Bsigma = repmat(priors.Hsigma,1,Nw);
-Mu0 = priors.mu0;
-Sigma0 = priors.sigma0;
+Bmu = repmat(priors.mu_h,1,Nw);
+Bsigma = repmat(priors.sigma_h,1,Nw);
+Mu0 = priors.mu_0;
+Sigma0 = priors.sigma_0;
 A0 = log( M^100 * [1;0] );
 for iter=1:Niter+Nburn
     [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
@@ -93,7 +93,7 @@ end
 figure
 plot(samples.P_data,'k','LineWidth',2);
 
-%% E step
+% E step
 function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_start)
     X_B=X; Z=0*X; ep=1e-50;
 
@@ -104,11 +104,11 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
     %emission probability
     for t=1:numel(X)
         Bmu_t = Bmu(t);
-        Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2 );
+        Bsigma_t = sqrt( Bsigma(t)^2 + prior.sigma_B^2 );
         pe(1,t) = log( normpdf(X(t), Bmu_t, Bsigma_t) ); %z_t=0
         
         sigma1 = Bsigma_t;
-        sigma2 = sqrt( prior.Esigma^2 + Sigma0^2 );
+        sigma2 = sqrt( prior.sigma_E^2 + Sigma0^2 );
         sigma12 = sqrt( sigma1^2*sigma2^2 / (sigma1^2+sigma2^2) );
         pe(2,t) = log( 1/(2*pi*sigma1*sigma2) * sqrt(2*pi*sigma12^2) ) ...
             + -(X(t)-Bmu_t-Mu0)^2 / 2*(sigma1^2+sigma2^2);
@@ -144,8 +144,8 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
         if ( log(rand(1)) > p(1,t))	% if event at time t
             Z(t)=1;
             Bmu_t = Bmu(t);
-            Bsigma_t = sqrt( Bsigma(t)^2 + prior.Bsigma^2);
-            sigma1 = Bsigma_t; sigma2 = sqrt( prior.Esigma^2 + Sigma0^2);
+            Bsigma_t = sqrt( Bsigma(t)^2 + prior.sigma_B^2);
+            sigma1 = Bsigma_t; sigma2 = sqrt( prior.sigma_E^2 + Sigma0^2);
             mu12 = ( (X(t)-Bmu_t)*sigma2^2 + Mu0*sigma1^2 ) / (sigma1^2 + sigma2^2);
             sigma12 = sigma1^2*sigma2^2 / (sigma1^2+sigma2^2);
             X_B(t) = normrnd(mu12, sigma12); % sampling X_B
@@ -156,7 +156,7 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
     P_Z = p;
     P_E = pe;
 
-%% GIVEN Z, SAMPLE M
+% GIVEN Z, SAMPLE M
 function [M] = draw_M_Z(Z,prior)
     n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0));
     n10 = length(find(Z(1:end-1)==1 & Z(2:end)==0)); n1=length(find(Z(1:end-1)==1));
@@ -164,34 +164,37 @@ function [M] = draw_M_Z(Z,prior)
     z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
     M = [1-z0, z1; z0, 1-z1];
 
-%% M step
+% M step
 function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUIV)
     Nd=7;	Nh=size(X_B,1);
     X_E = X - X_B;
     
-    %compute posterior hyperparameters for mu_E
+    %compute sigma_E and posterior hyperparameters for mu_E, only if X_E exists
     if ~isempty( find(X_E~=0,1) )
-        [mu, sigma] = get_post_para(X_E, prior.mu0, prior.sigma0);
+        [mu, sigma] = get_post_para(X_E, prior.mu_0, prior.sigma_0);
         Mu0 = mu;
         Sigma0 = sigma;
+        prior.sigma_E = sqrt(var(X_E));
     else
         Mu0 = Mu0_;
         Sigma0 = Sigma0_;
     end
     
     %compute posterior hyperparameters for mu_B(t)
-    Hmu = zeros(Nh,Nd);
-    Hsigma = zeros(Nh,Nd);
-    for d=1:size(Hmu,2) %day
-        for h=1:size(Hmu,1)   %interval
+    mu_h = zeros(Nh,Nd);
+    sigma_h = zeros(Nh,Nd);
+    for d=1:size(mu_h,2) %day
+        for h=1:size(mu_h,1)   %interval
             hour_sample = X_B(h,d:7:end);
-            [mu, sigma] = get_post_para(hour_sample, prior.Hmu(h,d), prior.Hsigma(h,d));
-            Hmu(h,d) = mu;
-            Hsigma(h,d) = sigma;
+            [mu, sigma] = get_post_para(hour_sample, prior.mu_h(h,d), prior.sigma_h(h,d));
+            mu_h(h,d) = mu;
+            sigma_h(h,d) = sigma;
         end
     end
-    Bmu = repmat(Hmu,1,size(X_B,2)/7);
-    Bsigma = repmat(Hsigma,1,size(X_B,2)/7);
+    Bmu = repmat(mu_h,1,size(X_B,2)/7);
+    Bsigma = repmat(sigma_h,1,size(X_B,2)/7);
+
+    prior.sigma_B = sqrt(var(X_B));
 
     %TBD: enforce paramter sharing between days
     switch EQUIV(1)
@@ -207,14 +210,14 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
     end    
     
     %debug block
-    figure
-    W = 7*2; % # of days to plot
-    hold on
-    plot(X(1:4*24*W),'r','LineWidth',1.5)
-    plot(Bmu(1:4*24*W),'k','LineWidth',1.5)
-    plot(X(1:4*24*W) - Bmu(1:4*24*W),'b','LineWidth',1.5)
-    plot(Bsigma(1:4*24*W),'g','LineWidth',1)
-    pause
+%     figure
+%     W = 7*2; % # of days to plot
+%     hold on
+%     plot(X(1:4*24*W),'r','LineWidth',1.5)
+%     plot(Bmu(1:4*24*W),'k','LineWidth',1.5)
+%     plot(X(1:4*24*W) - Bmu(1:4*24*W),'b','LineWidth',1.5)
+%     plot(Bsigma(1:4*24*W),'g','LineWidth',1)
+%     pause
 %     legend('Original','Baseline','Event')
 %     day_bd = zeros(1, numel(N));
 %     day_bd(1:4*24:end) = 1*max(N(:));
