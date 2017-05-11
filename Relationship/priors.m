@@ -9,9 +9,9 @@ priors.Hsigma = zeros(4*24,7)+10;
 
 %transition prior hyperparameter
 priors.z01 = .01*10000; priors.z00 = .99*10000;     % z(t) event process
-priors.z10 = .25*10000; priors.z11 = .75*10000;     
+priors.z10 = .1*10000; priors.z11 = .9*10000;     
 
-priors.Esigma = 10;
+priors.Esigma = 1;
 %NE prior hyperparameter
 priors.mu0 = 0;
 priors.sigma0 = 10;

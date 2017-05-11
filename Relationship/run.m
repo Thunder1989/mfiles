@@ -35,7 +35,7 @@ for n = 2:2
 %         cur_corr = cur_corr(1,2);
 %         vav_corr(n) = abs(cur_corr);
     event_times = zeros(size(cur_ahu));
-    res = mmpp(cur_ahu, priors, [Niter,Nburn,Nplot], event_times, [3,3]);
+    res = mmpp(cur_ahu, [Niter,Nburn,Nplot], event_times, [3,3]);
  
     data = res.Z(:,:,end);
     prob_ahu{n} = reshape(data,[],1)';

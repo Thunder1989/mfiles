@@ -1,4 +1,4 @@
-function samples = sensorMCMC(X,priors,ITERS,events,EQUIV)
+function samples = sensorMCMC(X,ITERS,events,EQUIV)
 % samples = sensorMCMC(Data, priors, [Niter Nburn Nplot], events, EQUIV)
 %    Data   : (Ntimes x 7*Nweeks) matrix of count data (assumed starting Sunday)
 %    Priors : structure with parameter values of prior distributions
@@ -28,13 +28,33 @@ switch EQUIV(1) % d(t)
   case 1, fprintf('All days share total (per day) rate; ');
   case 2, fprintf('Weekend/weekdays share total (per day) rate; ');
   case 3, fprintf('Total (per day) rate unshared; ');
-end;
+end
 switch EQUIV(1) % h(t)
   case 1, fprintf('All days share time profile.\n');
   case 2, fprintf('Weekend/weekdays share time profile.\n');
   case 3, fprintf('Time profile unshared.\n');
-end;
+end
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
+
+%------priors--------
+priors = struct();
+
+priors.Bsigma = 1;	%X_B sigma
+priors.Esigma = 1;  %X_E sigma
+
+%X_B prior hyperparameter
+priors.Hmu = zeros(4*24,7);
+priors.Hsigma = zeros(4*24,7)+10;
+%X_E prior hyperparameter
+priors.mu0 = 0;
+priors.sigma0 = 10;
+
+%transition prior hyperparameter
+priors.z01 = .01*10000; priors.z00 = .99*10000;     % z(t) event process
+priors.z10 = .1*10000; priors.z11 = .9*10000;     
+
+priors.MODE = 0;
+%---------------------
 
 Z=zeros(size(X)); X_B=max(X,1); 
 M=[.99,.5;.01,.5]; %[p00, p10; p01, p11]
@@ -42,8 +62,6 @@ Nd=7; Nh=size(X,1); Nw=size(X,2)/7;
 samples.Z = zeros([size(Z),Niter]);
 samples.M  = zeros([size(M),Niter]);
 samples.X_B = zeros([size(X_B),Niter]);
-samples.logp_NgLM = zeros(1,Niter); 
-samples.logp_NgLZ = zeros(1,Niter);
 samples.P_data = zeros(1,Niter);
 samples.P_Z = zeros([2,numel(X),Niter]);
 samples.P_E = zeros([2,numel(X),Niter]);
@@ -55,7 +73,6 @@ Mu0 = priors.mu0;
 Sigma0 = priors.sigma0;
 A0 = log( M^100 * [1;0] );
 for iter=1:Niter+Nburn
-    iter
     [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
     [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0,Sigma0,priors,EQUIV); %M step
     M = draw_M_Z(Z,priors);
@@ -70,8 +87,8 @@ for iter=1:Niter+Nburn
   end
 end
 
-gen_movie(samples.P_Z,'event');
-gen_movie(samples.P_E,'emission');
+% gen_movie(samples.P_Z,'event');
+% gen_movie(samples.P_E,'emission');
 
 figure
 plot(samples.P_data,'k','LineWidth',2);
@@ -153,7 +170,6 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
     X_E = X - X_B;
     
     %compute posterior hyperparameters for mu_E
-%     assert ( ~isempty(find(NE~=0,1)))
     if ~isempty( find(X_E~=0,1) )
         [mu, sigma] = get_post_para(X_E, prior.mu0, prior.sigma0);
         Mu0 = mu;
@@ -190,14 +206,15 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUI
         case 3,
     end    
     
-    %test block
-%     figure
-%     hold on
-%     plot(reshape(X,1,[]),'r','LineWidth',1.5)
-%     plot(reshape(Bmu,1,[]),'k','LineWidth',1.5)
-%     plot(reshape(Bsigma,1,[]),'b','LineWidth',1)
-%     pause
-%     plot(reshape(X,1,[]) - reshape(Bmu,1,[]),'k','LineWidth',1.5)
+    %debug block
+    figure
+    W = 7*2; % # of days to plot
+    hold on
+    plot(X(1:4*24*W),'r','LineWidth',1.5)
+    plot(Bmu(1:4*24*W),'k','LineWidth',1.5)
+    plot(X(1:4*24*W) - Bmu(1:4*24*W),'b','LineWidth',1.5)
+    plot(Bsigma(1:4*24*W),'g','LineWidth',1)
+    pause
 %     legend('Original','Baseline','Event')
 %     day_bd = zeros(1, numel(N));
 %     day_bd(1:4*24:end) = 1*max(N(:));
