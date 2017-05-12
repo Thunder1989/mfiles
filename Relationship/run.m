@@ -4,7 +4,7 @@ clc
 
 T = 7*52; % # of days
 W = 7*2; % # of days to plot
-Niter = 20;
+Niter = 7;
 Nburn = 0;
 Nplot = 20;
 
@@ -46,7 +46,7 @@ for n = 2:2
     figure
     plot(reshape(cur_ahu(1:4*24*W),1,[]),'k')
     hold on; 
-    % plot(reshape(res.N0(:,:,end),1,[]),'b')
+    plot(reshape(N0_ahu{n}(1:4*24*W),1,[]),'b')
     plot(reshape(NE_ahu{n}(1:4*24*W),1,[]),'r')
     day_bd = zeros(1, 4*24*W);
     day_bd(1:4*24:end) = 1*max(cur_ahu(:));

@@ -37,21 +37,19 @@ end
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
 %------priors--------
-priors = struct();
-
-priors.sigma_B = 1;	%X_B sigma
-priors.sigma_E = 1;  %X_E sigma
+priors.sigma_B = 10;	%X_B sigma
+priors.sigma_E = 10;	%X_E sigma
 
 %X_B prior hyperparameter
-priors.mu_h = zeros(4*24,7);
-priors.sigma_h = zeros(4*24,7)+10;
+priors.mu_h = zeros(4*24,7)+50;
+priors.sigma_h = zeros(4*24,7)+1;
 %X_E prior hyperparameter
 priors.mu_0 = 0;
 priors.sigma_0 = 10;
 
 %transition prior hyperparameter
-priors.z01 = .01*10000; priors.z00 = .99*10000;	% z(t) event process
-priors.z10 = .1*10000; priors.z11 = .9*10000;
+priors.z01 = .1*1000; priors.z00 = .9*1000;	% z(t) event process
+priors.z10 = .1*1000; priors.z11 = .9*1000;
 
 % priors.MODE = 0;
 %---------------------
@@ -65,6 +63,7 @@ samples.X_B = zeros([size(X_B),Niter]);
 samples.P_data = zeros(1,Niter);
 samples.P_Z = zeros([2,numel(X),Niter]);
 samples.P_E = zeros([2,numel(X),Niter]);
+samples.prior = priors;
 
 % MAIN LOOP: MCMC FOR INFERENCE
 Bmu = repmat(priors.mu_h,1,Nw);
@@ -74,19 +73,19 @@ Sigma0 = priors.sigma_0;
 A0 = log( M^100 * [1;0] );
 for iter=1:Niter+Nburn
     [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
-    [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Z,Mu0,Sigma0,priors,EQUIV); %M step
+    [Bmu,Bsigma,Mu0,Sigma0,priors] = draw_Para_SData(X,X_B,Z,Mu0,Sigma0,priors,EQUIV); %M step
     M = draw_M_Z(Z,priors);
     samples.P_data(iter) = P_data;
     samples.P_Z(:,:,iter) = P_Z;
     samples.P_E(:,:,iter) = P_E;
+    samples.prior = priors;
     
-  if (iter > Nburn)
-    samples.Z(:,:,iter-Nburn) = Z;
-    samples.M(:,:,iter-Nburn) = M;
-    samples.X_B(:,:,iter-Nburn) = X_B;
-  end
+    if (iter > Nburn)
+        samples.Z(:,:,iter-Nburn) = Z;
+        samples.M(:,:,iter-Nburn) = M;
+        samples.X_B(:,:,iter-Nburn) = X_B;
+    end
 end
-
 % gen_movie(samples.P_Z,'event');
 % gen_movie(samples.P_E,'emission');
 
@@ -164,7 +163,7 @@ function [M] = draw_M_Z(Z,prior)
     M = [1-z0, z1; z0, 1-z1];
 
 % M step
-function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,prior,EQUIV)
+function [Bmu,Bsigma,Mu0,Sigma0,prior] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,prior,EQUIV)
     Nd=7;	Nh=size(X_B,1);
     X_E = X - X_B;
     
@@ -174,6 +173,7 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,prior,EQ
         [mu, sigma] = get_post_para(data, prior.mu_0, prior.sigma_0);
         Mu0 = mu;
         Sigma0 = sigma;
+%         fprintf('sigma_E from previous %f\n', prior.sigma_E);
         prior.sigma_E = sqrt(var(data(:)));
     else
         Mu0 = Mu0_;
@@ -194,7 +194,8 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,prior,EQ
     Bmu = repmat(mu_h,1,size(X_B,2)/7);
     Bsigma = repmat(sigma_h,1,size(X_B,2)/7);
 
-    prior.sigma_B = sqrt(var(X_B));
+%     fprintf('sigma_B from previous %f\n', prior.sigma_B);
+    prior.sigma_B = sqrt(var(X_B(:)));
 
     %TBD: enforce paramter sharing between days
     switch EQUIV(1)
@@ -210,13 +211,13 @@ function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,prior,EQ
     end    
     
     %debug block
-%     figure
-%     W = 7*2; % # of days to plot
-%     hold on
-%     plot(X(1:4*24*W),'r','LineWidth',1.5)
-%     plot(Bmu(1:4*24*W),'k','LineWidth',1.5)
-%     plot(X(1:4*24*W) - Bmu(1:4*24*W),'b','LineWidth',1.5)
-%     plot(Bsigma(1:4*24*W),'g','LineWidth',1)
+    figure
+    W = 7*2; % # of days to plot
+    hold on
+    plot(X(1:4*24*W),'r','LineWidth',1.5)
+    plot(Bmu(1:4*24*W),'k','LineWidth',1.5)
+    plot(X(1:4*24*W) - Bmu(1:4*24*W),'b','LineWidth',1.5)
+    plot(Bsigma(1:4*24*W),'g','LineWidth',1)
 %     pause
 %     legend('Original','Baseline','Event')
 %     day_bd = zeros(1, numel(N));
