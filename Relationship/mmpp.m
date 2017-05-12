@@ -109,8 +109,7 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
         
         sigma1 = Bsigma_t;
         sigma2 = sqrt( prior.sigma_E^2 + Sigma0^2 );
-        sigma12 = sqrt( sigma1^2*sigma2^2 / (sigma1^2+sigma2^2) );
-        pe(2,t) = log( 1/(2*pi*sigma1*sigma2) * sqrt(2*pi*sigma12^2) ) ...
+        pe(2,t) = log( 1/sqrt(2*pi*(sigma1^2+sigma2^2)) ) ...
             + -(X(t)-Bmu_t-Mu0)^2 / 2*(sigma1^2+sigma2^2);
     end
     
@@ -141,7 +140,7 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
 
     % sampling
     for t=numel(X):-1:1
-        if ( log(rand(1)) > p(1,t))	% if event at time t
+        if ( log(rand(1)) > p(1,t) )	% if event at time t
             Z(t)=1;
             Bmu_t = Bmu(t);
             Bsigma_t = sqrt( Bsigma(t)^2 + prior.sigma_B^2);

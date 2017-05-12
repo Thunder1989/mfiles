@@ -9,6 +9,7 @@
 *.mat
 *.R
 *.avi
+*foo*
 
 /voice/*
 !/Relationship/data*/*
