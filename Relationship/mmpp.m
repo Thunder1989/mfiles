@@ -74,7 +74,7 @@ Sigma0 = priors.sigma_0;
 A0 = log( M^100 * [1;0] );
 for iter=1:Niter+Nburn
     [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
-    [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0,Sigma0,priors,EQUIV); %M step
+    [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Z,Mu0,Sigma0,priors,EQUIV); %M step
     M = draw_M_Z(Z,priors);
     samples.P_data(iter) = P_data;
     samples.P_Z(:,:,iter) = P_Z;
@@ -110,7 +110,7 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
         sigma1 = Bsigma_t;
         sigma2 = sqrt( prior.sigma_E^2 + Sigma0^2 );
         pe(2,t) = log( 1/sqrt(2*pi*(sigma1^2+sigma2^2)) ) ...
-            + -(X(t)-Bmu_t-Mu0)^2 / 2*(sigma1^2+sigma2^2);
+            + -(X(t)-Bmu_t-Mu0)^2 / ( 2*(sigma1^2+sigma2^2) );
     end
     
     % forward
@@ -146,7 +146,7 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
             Bsigma_t = sqrt( Bsigma(t)^2 + prior.sigma_B^2);
             sigma1 = Bsigma_t; sigma2 = sqrt( prior.sigma_E^2 + Sigma0^2);
             mu12 = ( (X(t)-Bmu_t)*sigma2^2 + Mu0*sigma1^2 ) / (sigma1^2 + sigma2^2);
-            sigma12 = sigma1^2*sigma2^2 / (sigma1^2+sigma2^2);
+            sigma12 = sqrt( sigma1^2*sigma2^2 / (sigma1^2+sigma2^2) );
             X_B(t) = normrnd(mu12, sigma12); % sampling X_B
         else
             Z(t)=0; X_B(t)=X(t); % no event
@@ -157,23 +157,24 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
 
 % GIVEN Z, SAMPLE M
 function [M] = draw_M_Z(Z,prior)
-    n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0));
+    n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0)); %checked
     n10 = length(find(Z(1:end-1)==1 & Z(2:end)==0)); n1=length(find(Z(1:end-1)==1));
     z0 = betarnd(n01+prior.z01, n0-n01+prior.z00);
     z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
     M = [1-z0, z1; z0, 1-z1];
 
 % M step
-function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Mu0_,Sigma0_,prior,EQUIV)
+function [Bmu,Bsigma,Mu0,Sigma0] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,prior,EQUIV)
     Nd=7;	Nh=size(X_B,1);
     X_E = X - X_B;
     
     %compute sigma_E and posterior hyperparameters for mu_E, only if X_E exists
-    if ~isempty( find(X_E~=0,1) )
-        [mu, sigma] = get_post_para(X_E, prior.mu_0, prior.sigma_0);
+    if ~isempty( find(Z~=0,1) )
+        data = X_E(Z==1);
+        [mu, sigma] = get_post_para(data, prior.mu_0, prior.sigma_0);
         Mu0 = mu;
         Sigma0 = sigma;
-        prior.sigma_E = sqrt(var(X_E));
+        prior.sigma_E = sqrt(var(data(:)));
     else
         Mu0 = Mu0_;
         Sigma0 = Sigma0_;
