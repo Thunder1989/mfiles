@@ -36,59 +36,113 @@ switch EQUIV(1) % h(t)
 end
 fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
-%------priors--------
-priors.sigma_B = 10;	%X_B sigma
-priors.sigma_E = 10;	%X_E sigma
-
-%X_B prior hyperparameter
-priors.mu_h = zeros(4*24,7)+50;
-priors.sigma_h = zeros(4*24,7)+1;
-%X_E prior hyperparameter
-priors.mu_0 = 0;
-priors.sigma_0 = 10;
-
-%transition prior hyperparameter
-priors.z01 = .1*1000; priors.z00 = .9*1000;	% z(t) event process
-priors.z10 = .1*1000; priors.z11 = .9*1000;
-
-% priors.MODE = 0;
-%---------------------
-
 Z=zeros(size(X)); X_B=max(X,1); 
 M=[.99,.5;.01,.5]; %[p00, p10; p01, p11]
 Nd=7; Nh=size(X,1); Nw=size(X,2)/7;
+D=7*4; 
+
+%------priors--------
+priors.MODE = 0;
+
+priors.sigma_B = 2;	%X_B sigma
+priors.sigma_E = 3;	%X_E sigma
+
+%X_B prior hyperparameter
+if priors.MODE == 1 %96*7
+    priors.mu_h = zeros(Nh,Nd)+50; %>40
+    priors.sigma_h = zeros(Nh,Nd)+2; %>10
+else %96+7
+    priors.mu_d = zeros(1,Nd)+50; %>40
+    priors.sigma_d = zeros(1,Nd)+2; %>10
+    priors.mu_h = zeros(Nh,1)+10; %>40
+    priors.sigma_h = zeros(Nh,1)+2; %>10
+end
+
+%X_E prior hyperparameter
+priors.mu_0 = 1;
+priors.sigma_0 = 2;
+
+%transition prior hyperparameter
+priors.z01 = .1*1000; priors.z00 = .9*1000;	% z(t) event process
+priors.z10 = .25*1000; priors.z11 = .75*1000;
+
+%---------------------
+
 samples.Z = zeros([size(Z),Niter]);
 samples.M  = zeros([size(M),Niter]);
 samples.X_B = zeros([size(X_B),Niter]);
 samples.P_data = zeros(1,Niter);
+samples.Mu0 = zeros(1,Niter);
+samples.Sigma0 = zeros(1,Niter);
 samples.P_Z = zeros([2,numel(X),Niter]);
 samples.P_E = zeros([2,numel(X),Niter]);
 samples.prior = priors;
 
 % MAIN LOOP: MCMC FOR INFERENCE
-Bmu = repmat(priors.mu_h,1,Nw);
-Bsigma = repmat(priors.sigma_h,1,Nw);
+if priors.MODE
+    Bmu = repmat(priors.mu_h,1,Nw);
+    Bsigma = repmat(priors.sigma_h,1,Nw);
+else
+    d1 = repmat(priors.mu_d, Nh, 1);
+    d2 = repmat(priors.mu_h, 1, Nd);
+    d = d1 + d2;
+    Bmu = repmat(d,1,size(X_B,2)/7);
+    h1 = repmat(priors.sigma_d, Nh, 1);
+    h2 = repmat(priors.sigma_h, 1, Nd);
+    h = h1 + h2;
+    Bsigma = repmat(h,1,size(X_B,2)/7);
+end
 Mu0 = priors.mu_0;
 Sigma0 = priors.sigma_0;
 A0 = log( M^100 * [1;0] );
 for iter=1:Niter+Nburn
+    fprintf('iter #%d\n',iter);
     [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
     [Bmu,Bsigma,Mu0,Sigma0,priors] = draw_Para_SData(X,X_B,Z,Mu0,Sigma0,priors,EQUIV); %M step
     M = draw_M_Z(Z,priors);
     samples.P_data(iter) = P_data;
+    samples.Mu0(iter) = Mu0;
+    samples.Sigma0(iter) = Sigma0;
     samples.P_Z(:,:,iter) = P_Z;
     samples.P_E(:,:,iter) = P_E;
-    samples.prior = priors;
-    
-    if (iter > Nburn)
-        samples.Z(:,:,iter-Nburn) = Z;
-        samples.M(:,:,iter-Nburn) = M;
-        samples.X_B(:,:,iter-Nburn) = X_B;
+    samples.Z(:,:,iter-Nburn) = Z;
+    samples.M(:,:,iter-Nburn) = M;
+    samples.X_B(:,:,iter-Nburn) = X_B;    
+
+    if (mod(iter,5)==0)
+        figure
+        D = 7*4; % # of days to plot
+        hold on
+        plot(X(1:4*24*D),'r','LineWidth',1.5)
+        plot(Bmu(1:4*24*D),'k','LineWidth',1.5)
+        plot(Bsigma(1:4*24*D),'b','LineWidth',1)
+        tmp = mean(samples.X_B(:,:,iter-Nplot+1:iter),3);
+        plot( tmp(1:4*24*D),'g')
+        tmp = mean(samples.P_Z(:,:,iter-Nplot+1:iter),3);
+        plot( tmp(2,1:4*24*D),'m')
+        title('average results')
+        legend('Original','Bmu','Bsigma','X\_B','P(Z)')
+        day_bd = zeros(1, 4*24*D);
+        day_bd(1:4*24:end) = 1*max(X(1:4*24*D));
+        days = {'Fri','Sat','Sun','Mon','Tue','Wed','Thu'};
+        ctr = 1;
+        for t=1:numel(day_bd)
+            if day_bd(t)==0
+                continue
+            end
+            plot([t t], [-10 day_bd(t)], 'k--', 'LineWidth', 0.5);
+            text(t+30,-10,days{mod(ctr-1,7)+1})
+            ctr = ctr + 1;
+        end
     end
 end
+
+samples.prior = priors;
+
 % gen_movie(samples.P_Z,'event');
 % gen_movie(samples.P_E,'emission');
 
+% log p_data
 figure
 plot(samples.P_data,'k','LineWidth',2);
 
@@ -154,7 +208,7 @@ function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior
     P_Z = p;
     P_E = pe;
 
-% GIVEN Z, SAMPLE M
+% Given Z, Sample M
 function [M] = draw_M_Z(Z,prior)
     n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0)); %checked
     n10 = length(find(Z(1:end-1)==1 & Z(2:end)==0)); n1=length(find(Z(1:end-1)==1));
@@ -164,7 +218,7 @@ function [M] = draw_M_Z(Z,prior)
 
 % M step
 function [Bmu,Bsigma,Mu0,Sigma0,prior] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,prior,EQUIV)
-    Nd=7;	Nh=size(X_B,1);
+    Nd=7; Nh=size(X_B,1); Nw=size(X_B,2)/7;
     X_E = X - X_B;
     
     %compute sigma_E and posterior hyperparameters for mu_E, only if X_E exists
@@ -173,7 +227,6 @@ function [Bmu,Bsigma,Mu0,Sigma0,prior] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,pr
         [mu, sigma] = get_post_para(data, prior.mu_0, prior.sigma_0);
         Mu0 = mu;
         Sigma0 = sigma;
-%         fprintf('sigma_E from previous %f\n', prior.sigma_E);
         prior.sigma_E = sqrt(var(data(:)));
     else
         Mu0 = Mu0_;
@@ -181,22 +234,53 @@ function [Bmu,Bsigma,Mu0,Sigma0,prior] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,pr
     end
     
     %compute posterior hyperparameters for mu_B(t)
-    mu_h = zeros(Nh,Nd);
-    sigma_h = zeros(Nh,Nd);
-    for d=1:size(mu_h,2) %day
-        for h=1:size(mu_h,1)   %interval
-            hour_sample = X_B(h,d:7:end);
-            [mu, sigma] = get_post_para(hour_sample, prior.mu_h(h,d), prior.sigma_h(h,d));
-            mu_h(h,d) = mu;
-            sigma_h(h,d) = sigma;
+    if prior.MODE %96*7 parameters
+        mu_h = zeros(Nh,Nd);
+        sigma_h = zeros(Nh,Nd);
+        for d=1:size(mu_h,2) %day
+            for h=1:size(mu_h,1)   %interval
+                hour_sample = X_B(h,d:7:end);
+                [mu, sigma] = get_post_para(hour_sample, prior.mu_h(h,d), prior.sigma_h(h,d));
+                mu_h(h,d) = mu;
+                sigma_h(h,d) = sigma;
+            end
         end
+        Bmu = repmat(mu_h,1,size(X_B,2)/7);
+        Bsigma = repmat(sigma_h,1,size(X_B,2)/7);
+
+    else
+        mu_d = zeros(1,Nd);
+        sigma_d = zeros(1,Nd);
+        mu_h = zeros(Nh,1);
+        sigma_h = zeros(Nh,1);
+        for d=1:size(mu_d,2)	%day
+            day_sample = mean(X_B(:,d:7:end));
+            [mu, sigma] = get_post_para(day_sample, prior.mu_d(d), prior.sigma_d(d));
+            mu_d(d) = mu;
+            sigma_d(d) = sigma;
+        end
+        residue = bsxfun(@minus, X, mean(X));
+        for h=1:size(mu_h,1)	%interval
+            hour_sample = residue(h,:);
+            [mu, sigma] = get_post_para(hour_sample, prior.mu_h(h), prior.sigma_h(h));
+            mu_h(h) = mu;
+            sigma_h(h) = sigma;
+        end
+        d1 = repmat(mu_d, Nh, 1);
+        d2 = repmat(mu_h, 1, Nd);
+        d = d1 + d2;
+        Bmu = repmat(d,1,size(X_B,2)/7);
+        h1 = repmat(sigma_d, Nh, 1);
+        h2 = repmat(sigma_h, 1, Nd);
+        h = h1 + h2;
+        Bsigma = repmat(h,1,size(X_B,2)/7);
+        size(Bmu)
+        size(Bsigma)
     end
-    Bmu = repmat(mu_h,1,size(X_B,2)/7);
-    Bsigma = repmat(sigma_h,1,size(X_B,2)/7);
 
-%     fprintf('sigma_B from previous %f\n', prior.sigma_B);
     prior.sigma_B = sqrt(var(X_B(:)));
-
+    prior
+    
     %TBD: enforce paramter sharing between days
     switch EQUIV(1)
         case 1,
@@ -210,16 +294,16 @@ function [Bmu,Bsigma,Mu0,Sigma0,prior] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,pr
         case 3,
     end    
     
-    %debug block
-    figure
-    W = 7*2; % # of days to plot
-    hold on
-    plot(X(1:4*24*W),'r','LineWidth',1.5)
-    plot(Bmu(1:4*24*W),'k','LineWidth',1.5)
-    plot(X(1:4*24*W) - Bmu(1:4*24*W),'b','LineWidth',1.5)
-    plot(Bsigma(1:4*24*W),'g','LineWidth',1)
+    %debugging block
+%     figure
+%     D = 7*4; % # of days to plot
+%     hold on
+%     plot(X(1:4*24*D),'r','LineWidth',1.5)
+%     plot(Bmu(1:4*24*D),'k','LineWidth',1.5)
+%     plot(X(1:4*24*D) - Bmu(1:4*24*D),'b','LineWidth',1.5)
+%     plot(Bsigma(1:4*24*D),'g','LineWidth',1)
+%     legend('Original','Bmu','Event','Bsigma')
 %     pause
-%     legend('Original','Baseline','Event')
 %     day_bd = zeros(1, numel(N));
 %     day_bd(1:4*24:end) = 1*max(N(:));
 %     for t=1:numel(day_bd)
@@ -246,42 +330,46 @@ function [mu, sigma] = get_post_para(X, mu_0, sigma_0)
     sigma = sqrt(var_);
 
 function s = logsumexp(x, dim)
-if nargin == 1 
-    dim = find(size(x)~=1,1);
-    if isempty(dim), dim = 1; end
-end
+    if nargin == 1 
+        dim = find(size(x)~=1,1);
+        if isempty(dim), dim = 1; end
+    end
 
-% subtract the largest in each column
-y = max(x,[],dim);
-x = bsxfun(@minus,x,y);
-% assert( isempty(find(x<-750)) )
-s = y + log(sum(exp(x),dim));
-i = find(~isfinite(y));
-if ~isempty(i)
-    s(i) = y(i);
-end
+    % subtract the largest in each column
+    y = max(x,[],dim);
+    x = bsxfun(@minus,x,y);
+    % assert( isempty(find(x<-750)) )
+    s = y + log(sum(exp(x),dim));
+    i = find(~isfinite(y));
+    if ~isempty(i)
+        s(i) = y(i);
+    end
 
 function gen_movie(y, name)
- % Set up the movie.
-fn = sprintf('%s.avi',name);
-writerObj = VideoWriter(fn); 
-writerObj.FrameRate = 1; % frames per second.
-open(writerObj); 
+     % Set up the movie.
+    fn = sprintf('%s.avi',name);
+    writerObj = VideoWriter(fn); 
+    writerObj.FrameRate = 1; % frames per second.
+    open(writerObj); 
 
-W = 7*2;
-% fid = figure;
-for i=1:size(y,3)
-%     pause(0.1);
-    figure
-    hold on
-    y_tmp = y(:,:,i);
-    plot(y_tmp(1,1:4*24*W),'r','LineWidth',1.5);
-    plot(y_tmp(2,1:4*24*W),'k','LineWidth',1.5);
-    title(sprintf('iter %d',i))
-%     if mod(i,4)==0, % Uncomment to take 1 out of every 4 frames.
-        frame = getframe(gcf); % 'gcf' can handle if you zoom in to take a movie.
-        writeVideo(writerObj, frame);
-%     end
- 
-end
-close(writerObj); % Saves the movie.
+    D = 7*2;
+    % fid = figure;
+    for i=1:size(y,3)
+    %     pause(0.1);
+        figure
+        hold on
+        y_tmp = y(:,:,i);
+        if size(y_tmp,1)>1
+            plot(y_tmp(1,1:4*24*D),'r','LineWidth',1.5);
+            plot(y_tmp(2,1:4*24*D),'k','LineWidth',1.5);
+        else
+            plot(y_tmp(1:4*24*D),'r','LineWidth',1.5);
+        end
+        title(sprintf('iter %d',i))
+    %     if mod(i,4)==0, % Uncomment to take 1 out of every 4 frames.
+            frame = getframe(gcf); % 'gcf' can handle if you zoom in to take a movie.
+            writeVideo(writerObj, frame);
+    %     end
+
+    end
+    close(writerObj); % Saves the movie.

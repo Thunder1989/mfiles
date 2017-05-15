@@ -3,10 +3,10 @@ clear
 clc
 
 T = 7*52; % # of days
-W = 7*2; % # of days to plot
-Niter = 7;
+D = 7*4; % # of days to plot
+Niter = 20;
 Nburn = 0;
-Nplot = 20;
+Nplot = 5;
 
 path_ahu = './all_ahu/';
 path_vav = './all_vav/';
@@ -15,10 +15,11 @@ vavs = dir(strcat(path_vav, '*.csv'));
 
 %%
 %load ahu data
+close all
 num = length(ahus);
 ahu_dist = cell(num,1);
 ahu_list = zeros(num,1);
-prob_ahu = cell(num,1);
+event_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
 % figure
@@ -37,27 +38,34 @@ for n = 2:2
     event_times = zeros(size(cur_ahu));
     res = mmpp(cur_ahu, [Niter,Nburn,Nplot], event_times, [3,3]);
  
-    data = res.Z(:,:,end);
-    prob_ahu{n} = reshape(data,[],1)';
+    data = res.P_Z(:,:,end);
+    event_ahu{n} = reshape(data(2,:),[],1)';
     data = res.X_B(:,:,end);
     N0_ahu{n} = reshape(data,[],1)';
     NE_ahu{n} = reshape(cur_ahu-data,[],1)';
 
     figure
-    plot(reshape(cur_ahu(1:4*24*W),1,[]),'k')
     hold on; 
-    plot(reshape(N0_ahu{n}(1:4*24*W),1,[]),'b')
-    plot(reshape(NE_ahu{n}(1:4*24*W),1,[]),'r')
-    day_bd = zeros(1, 4*24*W);
-    day_bd(1:4*24:end) = 1*max(cur_ahu(:));
-    for t=1:numel(day_bd)
-        if day_bd(t)==0
-            continue
-        end
-        plot([t t], [-10 day_bd(t)], 'k--', 'LineWidth', 0.5);
-    end
-    fn = sprintf('ahu_%d.png',n);
-    saveas(gcf,fn);    
+%     plot(reshape(cur_ahu(1:4*24*D),1,[]),'k')
+%     plot(reshape(N0_ahu{n}(1:4*24*D),1,[]),'b')
+%     plot(reshape(NE_ahu{n}(1:4*24*D),1,[]),'r')
+%     plot(reshape(event_ahu{n}(1:4*24*D)*20,1,[]),'g')
+    plot(res.Mu0,'k')
+    plot(res.Sigma0,'r')
+%     day_bd = zeros(1,4*24*D);
+%     day_bd(1:4*24:end) = 1*max(cur_ahu(:));
+%     days = {'Fri','Sat','Sun','Mon','Tue','Wed','Thu'};
+%     ctr = 1;
+%     for t=1:numel(day_bd)
+%         if day_bd(t)==0
+%             continue
+%         end
+%         plot([t t], [-10 day_bd(t)], 'k--', 'LineWidth', 0.5);
+%         text(t+30,-10,days{mod(ctr-1,7)+1})
+%         ctr = ctr + 1;
+%     end
+%     fn = sprintf('ahu_%d.png',n);
+%     saveas(gcf,fn);    
 
 end
 
@@ -153,7 +161,7 @@ for m = 1:9
     vav_e(m,:) = cur>=th;
 end
 
-ahu_tmp = cell2mat(prob_ahu);
+ahu_tmp = cell2mat(event_ahu);
 ahu_e = zeros(size(ahu_tmp));
 % figure
 for m = 1:8
