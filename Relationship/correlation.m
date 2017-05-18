@@ -10,42 +10,59 @@ vavs = dir(strcat(path_vav, '*.csv'));
 
 %%
 
-inter_corr = [];
-intra_corr = [];
+wrong = [];
+correct = [];
 ctr = 0;
 ctr1 = 0;
 k = 3;
 topk = 0;
-num = length(vavs);
 % num = 21;
-ahu_event = cell(length(ahus),1);
-vav_event = cell(num,1);
-ahu_list = zeros(length(ahus),1);
 
-for n = 1:length(ahus)
+ahu_event = cell(length(ahus),1);
+ahu_list = zeros(length(ahus),1);
+num = length(ahus);
+for n = 1:num
     fn = [path_ahu, ahus(n).name];
     cur_ahuid = str2double(ahus(n).name(5));
     data_ahu = csvread(fn,1);
     data_ahu = data_ahu(1:4*24*T,end);
-    e_ahu = edge(repmat(data_ahu',3,1),0.4);
+
+    delta = [0 diff(data_ahu)'];
+    e_ahu = edge(repmat(data_ahu',3,1),0.4); %th = 0.4
     e_ahu = e_ahu(1,:);
-    e_ahu = double(e_ahu | [false e_ahu(1:end-1)] | [e_ahu(2:end) false]);    
-    ahu_event{n} = e_ahu;
+    e_ahu = e_ahu | [false e_ahu(1:end-1)] | [e_ahu(2:end) false];    
+%     e_ahu = delta .* double(e_ahu);
+    
+    ahu_event{n} = double(e_ahu);
     ahu_list(n) = cur_ahuid;
 end
 
+num = length(vavs);
+vav_edge = cell(num,1);
+vav_event = cell(num,1);
+res = zeros(num,length(ahus)+1);
+wrong_test = [];
+score_tmp = [];
+w = 0.9;
+debug = 0;
 for m = 1:num
     fn = [path_vav, vavs(m).name];
     ahuid = str2double(vavs(m).name(5));
     data_vav = csvread(fn,1);
     data_vav = data_vav(1:4*24*T,1);
-    e_vav = edge(repmat(data_vav',3,1),1);
+    
+    delta = [0 diff(data_vav)'];
+    e_vav = edge(repmat(data_vav',3,1),1.3); %th = 1.3
     e_vav = e_vav(1,:);
-    e_vav = double(e_vav | [false e_vav(1:end-1)] | [e_vav(2:end) false]);
+    vav_edge{m} = double(e_vav);
+    e_vav = e_vav | [false e_vav(1:end-1)] | [e_vav(2:end) false];
+%     e_vav = delta .* double(e_vav);
+    e_vav = double(e_vav);
     vav_event{m} = e_vav;
 
     vav_corr = zeros(length(ahus),1);
     vav_sim = zeros(length(ahus),1);
+    vav_score = zeros(length(ahus),1);
     for n = 1:length(ahus)
         fn = [path_ahu, ahus(n).name];
         cur_ahuid = str2double(ahus(n).name(5));
@@ -53,17 +70,17 @@ for m = 1:num
         data_ahu = data_ahu(1:4*24*T,end);
         e_ahu = ahu_event{n};
 
-%         figure
-%         hold on
-%         %         plot(data(:,3))
-%         plot(data_ahu,'r','LineWidth',1.5)
-%         plot(data_vav,'k','LineWidth',1.5)
-%         stem(e_vav*max(data_vav),'b','LineWidth',0.5,'Marker','none')
-%         stem(e_ahu*max(data_ahu),'g','LineWidth',0.5,'Marker','none')
-% %         plot(data_vav(:,2))
-%         title(sprintf('%s vs %s',ahus(n).name(1:end-4),vavs(m).name(1:end-4)));
-%         pause
-        
+        %debugging block
+        if debug == 1
+            figure
+            hold on
+            stem(e_vav*max(data_vav),'b','LineWidth',0.5,'Marker','none')
+            stem(e_ahu*max(data_ahu),'g','LineWidth',0.5,'Marker','none')
+            plot(data_vav,'k','LineWidth',1.5)
+            plot(data_ahu,'r','LineWidth',1.5)
+            title(sprintf('%s vs %s',ahus(n).name(1:end-4),vavs(m).name(1:end-4)));
+            pause
+        end
         % AHU col 3 - SupplyAirPress,  5 - SupplyFanSpeedOutput
         % VAV col 1 - AirFlowNormalized, 2 - AirValvePosition
         cur_corr = corrcoef(data_ahu, data_vav);
@@ -71,36 +88,56 @@ for m = 1:num
         vav_corr(n) = abs(cur_corr);
 
         cur_sim = dot(e_ahu, e_vav)/(norm(e_ahu)*norm(e_vav)); 
-        vav_sim(n) = abs(cur_sim);
+        vav_sim(n) = cur_sim;
 
-        if cur_ahuid == ahuid
-            intra_corr = [intra_corr; cur_corr];
-        else
-            inter_corr = [inter_corr; cur_corr];
-        end
+        vav_score(n) = matched_power_score(vav_edge{m}, data_vav, data_ahu);
+        
     end
+    
     if ahu_list(vav_corr==max(vav_corr)) == ahuid
         ctr = ctr + 1;
     end
     
     if ahu_list(vav_sim==max(vav_sim)) == ahuid
         ctr1 = ctr1 + 1;
+        correct = [correct; vav_sim', m, find(ahu_list==ahuid), entropy(vav_sim), find(vav_score==max(vav_score),1)];
     else
-        [b,i] = sort(vav_sim,'descend');
+        [v,i] = sort(vav_sim,'descend');
+        flag = 0;
         if ~isempty( find(ahu_list(i(1:k))==ahuid) )
             topk = topk + 1;
-        end      
+            flag = 1;
+        end
+        true = find(ahu_list==ahuid);
+        predicted = find(vav_sim==max(vav_sim));
+        wrong = [wrong; vav_sim', m, true, predicted, entropy(vav_sim), flag, vav_sim(predicted)-vav_sim(true)];
+        max_in_all = find(vav_score==max(vav_score),1) == true;
+        topk_score = vav_score(i(1:k));
+        max_in_topk = vav_score(true)==max(topk_score);
+        wrong_test = [wrong_test; vav_score', true, predicted, find(vav_score==max(vav_score),1), max_in_all, max_in_topk];
+
 %         m
-%             vav_sim
+%         vav_sim
 %         vavs(m).name
 %         ahu_list(vav_sim==max(vav_sim))
     end
     
+    %TO-DO, weighted sum of two scores
+%     vav_score = vav_score/max(vav_score);
+%     tmp = w * vav_sim + (1-w) * vav_score;
+%     score_tmp = [score_tmp; tmp];
+
+    
+    res(m,1:end-1) = vav_sim;
+    res(m,end) = find(ahu_list==ahuid);
 end
 
 fprintf('acc on simple cc is %.4f\n', ctr/num);
 fprintf('acc on canny edge seq cossim is %.4f\n', ctr1/num);
 fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
+
+tmp = sum(wrong_test(:,12) | wrong_test(:,13)) + size(correct,1);
+fprintf('acc on combined is %.4f\n', tmp/num);
 
 
 for i=1:size(ahu_event,1)
@@ -141,7 +178,7 @@ for m = 1:num
     if ahu_list(vav_sim==max(vav_sim)) == ahuid
         ctr2 = ctr2 + 1;
     else
-        [b,i] = sort(vav_sim,'descend');
+        [v,i] = sort(vav_sim,'descend');
         if ~isempty( find(ahu_list(i(1:k))==ahuid) )
             topk = topk + 1;
         end      
@@ -156,11 +193,11 @@ fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
 figure
 hold on
 grid on
-[p, v] = ecdf(intra_corr);
+[p, v] = ecdf(correct(:,end));
 plot(v,p,'r', 'LineWidth', 2)
-[p, v] = ecdf(inter_corr);
+[p, v] = ecdf(wrong(:,end));
 plot(v,p,'k', 'LineWidth', 2)
-legend('intra\_ahu\_corr','inter\_ahu\_corr', 'Location','southeast', 'FontSize',12);
+legend('correct\_sim','wrong\_sim', 'Location','southeast', 'FontSize', 12);
 
 %%
 figure
