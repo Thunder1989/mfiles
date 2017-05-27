@@ -1,5 +1,4 @@
-function score = matched_power_score(edge_vav, data_vav, data_ahu)
-    K = 4;
+function score = matched_power_score(K, edge_vav, data_vav, data_ahu)
 
     edge_idx = find(edge_vav==1);
     while edge_idx(end)+1>length(edge_vav)

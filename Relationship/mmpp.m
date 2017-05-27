@@ -39,10 +39,9 @@ fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n
 Z=zeros(size(X)); X_B=max(X,1); 
 M=[.99,.5;.01,.5]; %[p00, p10; p01, p11]
 Nd=7; Nh=size(X,1); Nw=size(X,2)/7;
-D=7*4; 
 
 %------priors--------
-priors.MODE = 0;
+priors.MODE = 0; %1 for 96*7 paras, 0 for 96+7 paras 
 
 priors.sigma_B = 2;	%X_B sigma
 priors.sigma_E = 3;	%X_E sigma
@@ -95,6 +94,7 @@ end
 Mu0 = priors.mu_0;
 Sigma0 = priors.sigma_0;
 A0 = log( M^100 * [1;0] );
+D = 7*4; % # of days to plot
 for iter=1:Niter+Nburn
     fprintf('iter #%d\n',iter);
     [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
@@ -111,7 +111,6 @@ for iter=1:Niter+Nburn
 
     if (mod(iter,5)==0)
         figure
-        D = 7*4; % # of days to plot
         hold on
         plot(X(1:4*24*D),'r','LineWidth',1.5)
         plot(Bmu(1:4*24*D),'k','LineWidth',1.5)
@@ -126,7 +125,7 @@ for iter=1:Niter+Nburn
         day_bd(1:4*24:end) = 1*max(X(1:4*24*D));
         days = {'Fri','Sat','Sun','Mon','Tue','Wed','Thu'};
         ctr = 1;
-        for t=1:numel(day_bd)
+        for t=1:numel(day_bd) %day boundary and labels
             if day_bd(t)==0
                 continue
             end
@@ -224,6 +223,8 @@ function [Bmu,Bsigma,Mu0,Sigma0,prior] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,pr
     %compute sigma_E and posterior hyperparameters for mu_E, only if X_E exists
     if ~isempty( find(Z~=0,1) )
         data = X_E(Z==1);
+        sum(Z(:))
+        length(data)
         [mu, sigma] = get_post_para(data, prior.mu_0, prior.sigma_0);
         Mu0 = mu;
         Sigma0 = sigma;

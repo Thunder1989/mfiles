@@ -44,15 +44,15 @@ res = zeros(num,length(ahus)+1);
 wrong_test = [];
 score_tmp = [];
 w = 0.9;
-debug = 0;
-for m = 1:num
+debug = 1;
+for m = 5:num
     fn = [path_vav, vavs(m).name];
     ahuid = str2double(vavs(m).name(5));
     data_vav = csvread(fn,1);
     data_vav = data_vav(1:4*24*T,1);
     
     delta = [0 diff(data_vav)'];
-    e_vav = edge(repmat(data_vav',3,1),1.3); %th = 1.3
+    e_vav = edge(repmat(data_vav',3,1),1.25); %th = 1.25
     e_vav = e_vav(1,:);
     vav_edge{m} = double(e_vav);
     e_vav = e_vav | [false e_vav(1:end-1)] | [e_vav(2:end) false];
@@ -90,7 +90,7 @@ for m = 1:num
         cur_sim = dot(e_ahu, e_vav)/(norm(e_ahu)*norm(e_vav)); 
         vav_sim(n) = cur_sim;
 
-        vav_score(n) = matched_power_score(vav_edge{m}, data_vav, data_ahu);
+        vav_score(n) = matched_power_score(4, vav_edge{m}, data_vav, data_ahu);
         
     end
     
@@ -132,6 +132,7 @@ for m = 1:num
     res(m,end) = find(ahu_list==ahuid);
 end
 
+fprintf('--------------------------------------\n');
 fprintf('acc on simple cc is %.4f\n', ctr/num);
 fprintf('acc on canny edge seq cossim is %.4f\n', ctr1/num);
 fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
@@ -140,18 +141,18 @@ tmp = sum(wrong_test(:,12) | wrong_test(:,13)) + size(correct,1);
 fprintf('acc on combined is %.4f\n', tmp/num);
 
 
-for i=1:size(ahu_event,1)
-    tmp = ahu_event{i};
-    tmp = reshape(tmp,4*24*7,[])';
-    tmp = sum(tmp,1);
-    ahu_event{i} = tmp;
-end
-for i=1:size(vav_event,1)
-    tmp = vav_event{i};
-    tmp = reshape(tmp,4*24*7,[])';
-    tmp = sum(tmp,1);
-    vav_event{i} = tmp;
-end
+% for i=1:size(ahu_event,1)
+%     tmp = ahu_event{i};
+%     tmp = reshape(tmp,4*24*7,[])';
+%     tmp = sum(tmp,1);
+%     ahu_event{i} = tmp;
+% end
+% for i=1:size(vav_event,1)
+%     tmp = vav_event{i};
+%     tmp = reshape(tmp,4*24*7,[])';
+%     tmp = sum(tmp,1);
+%     vav_event{i} = tmp;
+% end
 fea_ahu = tfidf(cell2mat(ahu_event));
 fea_vav = tfidf(cell2mat(vav_event));
 % events = [cell2mat(ahu_event);cell2mat(vav_event)];
