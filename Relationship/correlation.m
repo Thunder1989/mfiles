@@ -9,19 +9,23 @@ ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
 %%
-
+close all
 wrong = [];
 correct = [];
 ctr = 0;
 ctr1 = 0;
 k = 3;
 topk = 0;
+N = 5*2; %Kalman Filter lookback window size
 % num = 21;
 
 ahu_event = cell(length(ahus),1);
+ahu_kf_res = cell(length(ahus),1);
+ahu_mle_res = cell(length(ahus),1);
 ahu_list = zeros(length(ahus),1);
 num = length(ahus);
 for n = 1:num
+%     fprintf('processing %s\n',ahus(n).name)
     fn = [path_ahu, ahus(n).name];
     cur_ahuid = str2double(ahus(n).name(5));
     data_ahu = csvread(fn,1);
@@ -35,17 +39,31 @@ for n = 1:num
     
     ahu_event{n} = double(e_ahu);
     ahu_list(n) = cur_ahuid;
+    
+    kf = StandardKalmanFilter(data_ahu',8,N,'EWMA'); 
+    diff2 = abs(data_ahu' - kf);
+    diff2(isnan(diff2)) = 0;
+    ahu_kf_res{n} = diff2;
+
+%     [mle, x] = data_mle(data_ahu',1); 
+%     diff2 = abs(data_ahu - mle(:));
+%     diff2(isnan(diff2)) = 0;
+%     ahu_mle_res{n} = diff2;
+
 end
 
 num = length(vavs);
 vav_edge = cell(num,1);
 vav_event = cell(num,1);
+vav_kf_res = cell(num,1);
+vav_mle_res = cell(num,1);
 res = zeros(num,length(ahus)+1);
 wrong_test = [];
 score_tmp = [];
-w = 0.9;
+w = 0.5;
 debug = 1;
-for m = 5:num
+for m = 6:num
+%     fprintf('processing %s\n',vavs(m).name)
     fn = [path_vav, vavs(m).name];
     ahuid = str2double(vavs(m).name(5));
     data_vav = csvread(fn,1);
@@ -59,26 +77,43 @@ for m = 5:num
 %     e_vav = delta .* double(e_vav);
     e_vav = double(e_vav);
     vav_event{m} = e_vav;
-
+    
     vav_corr = zeros(length(ahus),1);
     vav_sim = zeros(length(ahus),1);
     vav_score = zeros(length(ahus),1);
+    
+    kf = StandardKalmanFilter(data_vav',8,N,'EWMA'); 
+    diff1 = abs(data_vav' - kf);
+    diff1(isnan(diff1)) = 0;
+    vav_kf_res{m} = diff1;
+    
+%     [mle, x] = data_mle(data_vav',1); 
+%     diff1 = abs(data_vav - mle(:));
+%     diff1(isnan(diff2)) = 0;
+%     vav_mle_res{n} = diff1;
+
+%     mle = data_mle(X,1);
     for n = 1:length(ahus)
         fn = [path_ahu, ahus(n).name];
         cur_ahuid = str2double(ahus(n).name(5));
         data_ahu = csvread(fn,1);
         data_ahu = data_ahu(1:4*24*T,end);
         e_ahu = ahu_event{n};
-
+        diff2 = ahu_kf_res{n};
+%         diff2 = ahu_mle_res{n};
+        
         %debugging block
         if debug == 1
             figure
             hold on
-            stem(e_vav*max(data_vav),'b','LineWidth',0.5,'Marker','none')
-            stem(e_ahu*max(data_ahu),'g','LineWidth',0.5,'Marker','none')
+%             stem(e_vav*max(data_vav),'b','LineWidth',0.5,'Marker','none')
+%             stem(e_ahu*max(data_ahu),'g','LineWidth',0.5,'Marker','none')
             plot(data_vav,'k','LineWidth',1.5)
             plot(data_ahu,'r','LineWidth',1.5)
+            plot(diff1,'b','LineWidth',1.5)
+            plot(diff2,'g','LineWidth',1.5)
             title(sprintf('%s vs %s',ahus(n).name(1:end-4),vavs(m).name(1:end-4)));
+            legend('vav','ahu','vav\_kf\_res','ahu\_kf\_res','FontSize', 12);
             pause
         end
         % AHU col 3 - SupplyAirPress,  5 - SupplyFanSpeedOutput
@@ -90,13 +125,20 @@ for m = 5:num
         cur_sim = dot(e_ahu, e_vav)/(norm(e_ahu)*norm(e_vav)); 
         vav_sim(n) = cur_sim;
 
-        vav_score(n) = matched_power_score(4, vav_edge{m}, data_vav, data_ahu);
+%         vav_score(n) = matched_power_score(4, vav_edge{m}, data_vav, data_ahu);
+        vav_score(n) = dot(diff1, diff2)/(norm(diff1)*norm(diff2));
         
     end
     
     if ahu_list(vav_corr==max(vav_corr)) == ahuid
         ctr = ctr + 1;
     end
+    
+%     vav_sim = vav_score;
+
+    %TBD: weighted sum of cossim and mps
+%     vav_score = vav_score/max(vav_score);
+%     vav_sim = w * vav_sim + (1-w) * vav_score;
     
     if ahu_list(vav_sim==max(vav_sim)) == ahuid
         ctr1 = ctr1 + 1;
@@ -121,12 +163,6 @@ for m = 5:num
 %         vavs(m).name
 %         ahu_list(vav_sim==max(vav_sim))
     end
-    
-    %TO-DO, weighted sum of two scores
-%     vav_score = vav_score/max(vav_score);
-%     tmp = w * vav_sim + (1-w) * vav_score;
-%     score_tmp = [score_tmp; tmp];
-
     
     res(m,1:end-1) = vav_sim;
     res(m,end) = find(ahu_list==ahuid);
@@ -153,8 +189,14 @@ fprintf('acc on combined is %.4f\n', tmp/num);
 %     tmp = sum(tmp,1);
 %     vav_event{i} = tmp;
 % end
-fea_ahu = tfidf(cell2mat(ahu_event));
-fea_vav = tfidf(cell2mat(vav_event));
+
+% fea_ahu = tfidf(cell2mat(ahu_event));
+% fea_vav = tfidf(cell2mat(vav_event));
+fea_ahu = tfidf(cell2mat(ahu_kf_res));
+fea_vav = tfidf(cell2mat(vav_kf_res));
+% fea_ahu = tfidf(cell2mat(ahu_mle_res));
+% fea_vav = tfidf(cell2mat(vav_mle_res));
+
 % events = [cell2mat(ahu_event);cell2mat(vav_event)];
 % fea = tfidf(events);
 % fea_ahu = fea(1:length(ahu_event),:);
