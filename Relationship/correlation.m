@@ -40,10 +40,10 @@ for n = 1:num
     ahu_event{n} = double(e_ahu);
     ahu_list(n) = cur_ahuid;
     
-    kf = StandardKalmanFilter(data_ahu',8,N,'EWMA'); 
-    diff2 = abs(data_ahu' - kf);
-    diff2(isnan(diff2)) = 0;
-    ahu_kf_res{n} = diff2;
+%     kf = StandardKalmanFilter(data_ahu',8,N,'EWMA'); 
+%     diff2 = abs(data_ahu' - kf);
+%     diff2(isnan(diff2)) = 0;
+%     ahu_kf_res{n} = diff2;
 
 %     [mle, x] = data_mle(data_ahu',1); 
 %     diff2 = abs(data_ahu - mle(:));
@@ -61,8 +61,8 @@ res = zeros(num,length(ahus)+1);
 wrong_test = [];
 score_tmp = [];
 w = 0.5;
-debug = 1;
-for m = 6:num
+debug = 0;
+for m = 1:num
 %     fprintf('processing %s\n',vavs(m).name)
     fn = [path_vav, vavs(m).name];
     ahuid = str2double(vavs(m).name(5));
@@ -82,24 +82,23 @@ for m = 6:num
     vav_sim = zeros(length(ahus),1);
     vav_score = zeros(length(ahus),1);
     
-    kf = StandardKalmanFilter(data_vav',8,N,'EWMA'); 
-    diff1 = abs(data_vav' - kf);
-    diff1(isnan(diff1)) = 0;
-    vav_kf_res{m} = diff1;
+%     kf = StandardKalmanFilter(data_vav',8,N,'EWMA'); 
+%     diff1 = abs(data_vav' - kf);
+%     diff1(isnan(diff1)) = 0;
+%     vav_kf_res{m} = diff1;
     
 %     [mle, x] = data_mle(data_vav',1); 
 %     diff1 = abs(data_vav - mle(:));
 %     diff1(isnan(diff2)) = 0;
 %     vav_mle_res{n} = diff1;
 
-%     mle = data_mle(X,1);
     for n = 1:length(ahus)
         fn = [path_ahu, ahus(n).name];
         cur_ahuid = str2double(ahus(n).name(5));
         data_ahu = csvread(fn,1);
         data_ahu = data_ahu(1:4*24*T,end);
         e_ahu = ahu_event{n};
-        diff2 = ahu_kf_res{n};
+%         diff2 = ahu_kf_res{n};
 %         diff2 = ahu_mle_res{n};
         
         %debugging block
@@ -125,8 +124,8 @@ for m = 6:num
         cur_sim = dot(e_ahu, e_vav)/(norm(e_ahu)*norm(e_vav)); 
         vav_sim(n) = cur_sim;
 
-%         vav_score(n) = matched_power_score(4, vav_edge{m}, data_vav, data_ahu);
-        vav_score(n) = dot(diff1, diff2)/(norm(diff1)*norm(diff2));
+        vav_score(n) = matched_power_score(30, vav_edge{m}, data_vav, data_ahu); %k=14
+%         vav_score(n) = dot(diff1, diff2)/(norm(diff1)*norm(diff2));
         
     end
     
@@ -157,11 +156,6 @@ for m = 6:num
         topk_score = vav_score(i(1:k));
         max_in_topk = vav_score(true)==max(topk_score);
         wrong_test = [wrong_test; vav_score', true, predicted, find(vav_score==max(vav_score),1), max_in_all, max_in_topk];
-
-%         m
-%         vav_sim
-%         vavs(m).name
-%         ahu_list(vav_sim==max(vav_sim))
     end
     
     res(m,1:end-1) = vav_sim;
@@ -173,8 +167,11 @@ fprintf('acc on simple cc is %.4f\n', ctr/num);
 fprintf('acc on canny edge seq cossim is %.4f\n', ctr1/num);
 fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
 
-tmp = sum(wrong_test(:,12) | wrong_test(:,13)) + size(correct,1);
+% tmp = sum(wrong_test(:,12)| wrong_test(:,13)) + size(correct,1);
+tmp = sum(wrong_test(:,12)) + size(correct,1);
 fprintf('acc on combined is %.4f\n', tmp/num);
+% tmp = sum(wrong_test(:,13)) + size(correct,1);
+% fprintf('acc__ on combined is %.4f\n', tmp/num);
 
 
 % for i=1:size(ahu_event,1)
