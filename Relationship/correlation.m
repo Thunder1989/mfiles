@@ -40,10 +40,10 @@ for n = 1:num
     ahu_event{n} = double(e_ahu);
     ahu_list(n) = cur_ahuid;
     
-%     kf = StandardKalmanFilter(data_ahu',8,N,'EWMA'); 
-%     diff2 = abs(data_ahu' - kf);
-%     diff2(isnan(diff2)) = 0;
-%     ahu_kf_res{n} = diff2;
+    kf = StandardKalmanFilter(data_ahu',8,N,'EWMA'); 
+    diff2 = abs(data_ahu' - kf);
+    diff2(isnan(diff2)) = 0;
+    ahu_kf_res{n} = diff2(16:end); %TBD: make the manual period self-deciding
 
 %     [mle, x] = data_mle(data_ahu',1); 
 %     diff2 = abs(data_ahu - mle(:));
@@ -82,10 +82,11 @@ for m = 1:num
     vav_sim = zeros(length(ahus),1);
     vav_score = zeros(length(ahus),1);
     
-%     kf = StandardKalmanFilter(data_vav',8,N,'EWMA'); 
-%     diff1 = abs(data_vav' - kf);
-%     diff1(isnan(diff1)) = 0;
-%     vav_kf_res{m} = diff1;
+    kf = StandardKalmanFilter(data_vav',8,N,'EWMA'); 
+    diff1 = abs(data_vav' - kf);
+    diff1(isnan(diff1)) = 0;
+    diff1 = diff1(16:end);
+    vav_kf_res{m} = diff1;
     
 %     [mle, x] = data_mle(data_vav',1); 
 %     diff1 = abs(data_vav - mle(:));
@@ -98,7 +99,7 @@ for m = 1:num
         data_ahu = csvread(fn,1);
         data_ahu = data_ahu(1:4*24*T,end);
         e_ahu = ahu_event{n};
-%         diff2 = ahu_kf_res{n};
+        diff2 = ahu_kf_res{n};
 %         diff2 = ahu_mle_res{n};
         
         %debugging block
@@ -124,8 +125,8 @@ for m = 1:num
         cur_sim = dot(e_ahu, e_vav)/(norm(e_ahu)*norm(e_vav)); 
         vav_sim(n) = cur_sim;
 
-        vav_score(n) = matched_power_score(30, vav_edge{m}, data_vav, data_ahu); %k=14
-%         vav_score(n) = dot(diff1, diff2)/(norm(diff1)*norm(diff2));
+%         vav_score(n) = matched_power_score(14, vav_edge{m}, data_vav, data_ahu); %k=14
+        vav_score(n) = dot(diff1, diff2)/(norm(diff1)*norm(diff2));
         
     end
     
@@ -145,7 +146,7 @@ for m = 1:num
     else
         [v,i] = sort(vav_sim,'descend');
         flag = 0;
-        if ~isempty( find(ahu_list(i(1:k))==ahuid) )
+        if ~isempty( find(ahu_list(i(1:k))==ahuid,1) )
             topk = topk + 1;
             flag = 1;
         end
