@@ -61,7 +61,7 @@ res = zeros(num,length(ahus)+1);
 wrong_test = [];
 score_tmp = [];
 w = 0.5;
-debug = 0;
+debug = 1;
 for m = 1:num
 %     fprintf('processing %s\n',vavs(m).name)
     fn = [path_vav, vavs(m).name];
@@ -109,9 +109,10 @@ for m = 1:num
 %             stem(e_vav*max(data_vav),'b','LineWidth',0.5,'Marker','none')
 %             stem(e_ahu*max(data_ahu),'g','LineWidth',0.5,'Marker','none')
             plot(data_vav,'k','LineWidth',1.5)
-            plot(data_ahu,'r','LineWidth',1.5)
-            plot(diff1,'b','LineWidth',1.5)
-            plot(diff2,'g','LineWidth',1.5)
+%             plot(data_ahu,'r','LineWidth',1.5)
+            plot([zeros(1,15) diff1],'b','LineWidth',1.5)
+%             stem(50*([zeros(1,15) diff1]>=mean(diff1)+1*std(diff1)),'g','LineWidth',0.5,'Marker','none')
+%             plot(diff2,'g','LineWidth',1.5)
             title(sprintf('%s vs %s',ahus(n).name(1:end-4),vavs(m).name(1:end-4)));
             legend('vav','ahu','vav\_kf\_res','ahu\_kf\_res','FontSize', 12);
             pause
@@ -136,7 +137,7 @@ for m = 1:num
     
 %     vav_sim = vav_score;
 
-    %TBD: weighted sum of cossim and mps
+    %TBD:weighted sum of cossim and mps
 %     vav_score = vav_score/max(vav_score);
 %     vav_sim = w * vav_sim + (1-w) * vav_score;
     
@@ -173,7 +174,6 @@ tmp = sum(wrong_test(:,12)) + size(correct,1);
 fprintf('acc on combined is %.4f\n', tmp/num);
 % tmp = sum(wrong_test(:,13)) + size(correct,1);
 % fprintf('acc__ on combined is %.4f\n', tmp/num);
-
 
 % for i=1:size(ahu_event,1)
 %     tmp = ahu_event{i};
@@ -220,12 +220,11 @@ for m = 1:num
         ctr2 = ctr2 + 1;
     else
         [v,i] = sort(vav_sim,'descend');
-        if ~isempty( find(ahu_list(i(1:k))==ahuid) )
+        if ~isempty( find(ahu_list(i(1:k))==ahuid,1) )
             topk = topk + 1;
         end      
     end    
 end
-
 
 fprintf('acc on tfidf cossim is %.4f\n', ctr2/num);
 fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
