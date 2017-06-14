@@ -22,26 +22,26 @@ switch length(ITERS),
     case 3, Nplot=ITERS(3); Nburn=ITERS(2); Niter = ITERS(1);
 end;
 
-fprintf('Running the Markov-modulated Gaussian model...\n');
-fprintf('Data is %d days long with %d measurements per day;\n',size(X,2),size(X,1));
-switch EQUIV(1) % d(t)
-  case 1, fprintf('All days share total (per day) rate; ');
-  case 2, fprintf('Weekend/weekdays share total (per day) rate; ');
-  case 3, fprintf('Total (per day) rate unshared; ');
-end
-switch EQUIV(1) % h(t)
-  case 1, fprintf('All days share time profile.\n');
-  case 2, fprintf('Weekend/weekdays share time profile.\n');
-  case 3, fprintf('Time profile unshared.\n');
-end
-fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
+% fprintf('Running the Markov-modulated Gaussian model...\n');
+% fprintf('Data is %d days long with %d measurements per day;\n',size(X,2),size(X,1));
+% switch EQUIV(1) % d(t)
+%   case 1, fprintf('All days share total (per day) rate; ');
+%   case 2, fprintf('Weekend/weekdays share total (per day) rate; ');
+%   case 3, fprintf('Total (per day) rate unshared; ');
+% end
+% switch EQUIV(1) % h(t)
+%   case 1, fprintf('All days share time profile.\n');
+%   case 2, fprintf('Weekend/weekdays share time profile.\n');
+%   case 3, fprintf('Time profile unshared.\n');
+% end
+% fprintf('Running for %d iterations, with %d for burn-in and plotting every %d.\n',Niter,Nburn,Nplot);
 
 Z=zeros(size(X)); X_B=max(X,1); 
 M=[.99,.5;.01,.5]; %[p00, p10; p01, p11]
 Nd=7; Nh=size(X,1); Nw=size(X,2)/7;
 
 %------priors--------
-priors.MODE = 0; %1 for 96*7 paras, 0 for 96+7 paras 
+priors.MODE = 1; %1 for 96*7 paras, 0 for 96+7 paras 
 
 priors.sigma_B = 2;	%X_B sigma
 priors.sigma_E = 3;	%X_E sigma
@@ -62,8 +62,8 @@ priors.mu_0 = 1;
 priors.sigma_0 = 2;
 
 %transition prior hyperparameter
-priors.z01 = .1*1000; priors.z00 = .9*1000;	% z(t) event process
-priors.z10 = .25*1000; priors.z11 = .75*1000;
+priors.z01 = .1*10000; priors.z00 = .9*10000;	% z(t) event process
+priors.z10 = .5*10000; priors.z11 = .5*10000;
 
 %---------------------
 
@@ -96,7 +96,7 @@ Sigma0 = priors.sigma_0;
 A0 = log( M^100 * [1;0] );
 D = 7*4; % # of days to plot
 for iter=1:Niter+Nburn
-    fprintf('iter #%d\n',iter);
+%     fprintf('iter #%d\n',iter);
     [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,priors,A0); %E step
     [Bmu,Bsigma,Mu0,Sigma0,priors] = draw_Para_SData(X,X_B,Z,Mu0,Sigma0,priors,EQUIV); %M step
     M = draw_M_Z(Z,priors);
@@ -109,31 +109,32 @@ for iter=1:Niter+Nburn
     samples.M(:,:,iter-Nburn) = M;
     samples.X_B(:,:,iter-Nburn) = X_B;    
 
-    if (mod(iter,5)==0)
-        figure
-        hold on
-        plot(X(1:4*24*D),'r','LineWidth',1.5)
-        plot(Bmu(1:4*24*D),'k','LineWidth',1.5)
-        plot(Bsigma(1:4*24*D),'b','LineWidth',1)
-        tmp = mean(samples.X_B(:,:,iter-Nplot+1:iter),3);
-        plot( tmp(1:4*24*D),'g')
-        tmp = mean(samples.P_Z(:,:,iter-Nplot+1:iter),3);
-        plot( tmp(2,1:4*24*D),'m')
-        title('average results')
-        legend('Original','Bmu','Bsigma','X\_B','P(Z)')
-        day_bd = zeros(1, 4*24*D);
-        day_bd(1:4*24:end) = 1*max(X(1:4*24*D));
-        days = {'Fri','Sat','Sun','Mon','Tue','Wed','Thu'};
-        ctr = 1;
-        for t=1:numel(day_bd) %day boundary and labels
-            if day_bd(t)==0
-                continue
-            end
-            plot([t t], [-10 day_bd(t)], 'k--', 'LineWidth', 0.5);
-            text(t+30,-10,days{mod(ctr-1,7)+1})
-            ctr = ctr + 1;
-        end
-    end
+        %plot every Nplot iterations
+%     if (mod(iter,5)==0)
+%         figure
+%         hold on
+%         plot(X(1:4*24*D),'r','LineWidth',1.5)
+%         plot(Bmu(1:4*24*D),'k','LineWidth',1.5)
+%         plot(Bsigma(1:4*24*D),'b','LineWidth',1)
+%         tmp = mean(samples.X_B(:,:,iter-Nplot+1:iter),3);
+%         plot( tmp(1:4*24*D),'g')
+%         tmp = mean(samples.P_Z(:,:,iter-Nplot+1:iter),3);
+%         plot( tmp(2,1:4*24*D),'m')
+%         title('average results')
+%         legend('Original','Bmu','Bsigma','X\_B','P(Z)')
+%         day_bd = zeros(1, 4*24*D);
+%         day_bd(1:4*24:end) = 1*max(X(1:4*24*D));
+%         days = {'Fri','Sat','Sun','Mon','Tue','Wed','Thu'};
+%         ctr = 1;
+%         for t=1:numel(day_bd) %day boundary and labels
+%             if day_bd(t)==0
+%                 continue
+%             end
+%             plot([t t], [-10 day_bd(t)], 'k--', 'LineWidth', 0.5);
+%             text(t+30,-10,days{mod(ctr-1,7)+1})
+%             ctr = ctr + 1;
+%         end
+%     end
 end
 
 samples.prior = priors;
@@ -142,8 +143,8 @@ samples.prior = priors;
 % gen_movie(samples.P_E,'emission');
 
 % log p_data
-figure
-plot(samples.P_data,'k','LineWidth',2);
+% figure
+% plot(samples.P_data,'k','LineWidth',2);
 
 % E step
 function [Z,X_B,P_data,P_Z,P_E,A0] = draw_Z_Para(X,Bmu,Bsigma,Mu0,Sigma0,M,prior,A_start)
@@ -223,8 +224,6 @@ function [Bmu,Bsigma,Mu0,Sigma0,prior] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,pr
     %compute sigma_E and posterior hyperparameters for mu_E, only if X_E exists
     if ~isempty( find(Z~=0,1) )
         data = X_E(Z==1);
-        sum(Z(:))
-        length(data)
         [mu, sigma] = get_post_para(data, prior.mu_0, prior.sigma_0);
         Mu0 = mu;
         Sigma0 = sigma;
@@ -275,12 +274,12 @@ function [Bmu,Bsigma,Mu0,Sigma0,prior] = draw_Para_SData(X,X_B,Z,Mu0_,Sigma0_,pr
         h2 = repmat(sigma_h, 1, Nd);
         h = h1 + h2;
         Bsigma = repmat(h,1,size(X_B,2)/7);
-        size(Bmu)
-        size(Bsigma)
+%         size(Bmu)
+%         size(Bsigma)
     end
 
     prior.sigma_B = sqrt(var(X_B(:)));
-    prior
+%     prior
     
     %TBD: enforce paramter sharing between days
     switch EQUIV(1)
