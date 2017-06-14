@@ -2,14 +2,14 @@ close all
 clear
 clc
 
-T = 7*52; % # of days
+T = 7*4; % # of days
 D = 7*4; % # of days to plot
 Niter = 20;
 Nburn = 0;
 Nplot = 5;
 
-path_ahu = './all_ahu/';
-path_vav = './all_vav/';
+path_ahu = './data_ahu/';
+path_vav = './data_vav/';
 ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
@@ -144,6 +144,23 @@ end
 
 % acc = sum( vav_corr(:,1)==max(vav_corr')' )/size(vav_corr,1)
 acc = ctr / size(vav_corr,1)
+
+%% gibbs HMM
+close all
+num = length(ahus);
+ahu_dist = cell(num,1);
+ahu_list = zeros(num,1);
+event_ahu = cell(num,1);
+N0_ahu = cell(num,1);
+NE_ahu = cell(num,1);
+% figure
+for n = 2:2
+    fn = [path_ahu, ahus(n).name];
+    cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
+    cur_ahu = cur_ahu(1:4*24*T,:);
+    cur_ahu = cur_ahu(:,end);
+    res = gibbs_hmm(cur_ahu,1);
+end
 
 %% tmp script
 
