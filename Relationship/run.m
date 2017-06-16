@@ -159,7 +159,13 @@ for n = 2:2
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,end);
-    res = gibbs_hmm(cur_ahu,1);
+    res = gibbs_hmm(cur_ahu,0);
+    
+    figure
+    hold on
+    plot(cur_ahu,'k','LineWidth',2)
+    plot(res,'r--','LineWidth',1)
+
 end
 
 %% tmp script
