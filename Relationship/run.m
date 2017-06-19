@@ -146,7 +146,7 @@ end
 acc = ctr / size(vav_corr,1)
 
 %% gibbs HMM
-close all
+% close all
 num = length(ahus);
 ahu_dist = cell(num,1);
 ahu_list = zeros(num,1);
@@ -163,7 +163,7 @@ for n = 2:2
     
     figure
     hold on
-    plot(cur_ahu,'k','LineWidth',2)
+    plot(diff(cur_ahu),'k','LineWidth',2)
     plot(res,'r--','LineWidth',1)
 
 end
