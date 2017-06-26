@@ -148,18 +148,18 @@ acc = ctr / size(vav_corr,1)
 %% gibbs HMM
 % close all
 clc
-num = length(vavs);
+num = length(ahus);
 ahu_dist = cell(num,1);
 ahu_list = zeros(num,1);
 event_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
 % figure
-for n = 3:3
-    fn = [path_vav, vavs(n).name];
+for n = 2:2
+    fn = [path_ahu, ahus(n).name];
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
-    cur_ahu = cur_ahu(:,1);
+    cur_ahu = cur_ahu(:,end);
     res = gibbs_hmm(cur_ahu,0);
     
     figure

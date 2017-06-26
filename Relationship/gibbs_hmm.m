@@ -4,7 +4,7 @@ function output = gibbs_hmm(data, debug)
     X2 = [0 diff(X1)];
     Y1 = EWMA(X1,5);
     Y2 = EWMA(X2,5);
-    F = [1 1; 0 2];
+    F = [1 0; 0 1];
     H = [1 0; 0 1];
     
     fprintf('initial Q and R:\n')
@@ -21,7 +21,7 @@ function output = gibbs_hmm(data, debug)
     for k=1:K
         fprintf('--------------iter #%d--------------\n',k);
         %E step
-        Y_sample = repmat(Y,1,1,N)*0;
+        Y_sample = repmat(Y,1,1,N);
         p_tmp = zeros(N,1);
         for n=1:N
             for t=2:size(Y,1)-1 %TBD: shuttle the order
