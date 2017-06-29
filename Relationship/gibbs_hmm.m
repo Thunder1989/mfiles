@@ -4,7 +4,7 @@ function output = gibbs_hmm(data, debug)
     X2 = [0 diff(X1)];
     Y1 = EWMA(X1,5);
     Y2 = EWMA(X2,5);
-    F = [1 0; 0 1];
+    F = [1 1; 0 1];
     H = [1 0; 0 1];
     
     fprintf('initial Q and R:\n')
@@ -14,7 +14,7 @@ function output = gibbs_hmm(data, debug)
     X = [X1(:) X2(:)];
     Y = [Y1(:) Y2(:)];
     
-    K = 10; %# of iters for EM
+    K = 8; %# of iters for EM
     N = 200; %samples per iter
     
     p_data = zeros(K,1);
