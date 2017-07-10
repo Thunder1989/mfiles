@@ -50,8 +50,8 @@ function output = gibbs_hmm(data, debug)
         
         %M step
         Y = mean(Y_sample,3);
-        Q = cov(diff(Y))
-        R = cov(X - Y)
+        Q = cov(Y(2:end,:) - Y(1:end-1,:)*F')
+        R = cov(X - Y*H')
         
         if debug == 1
             figure
