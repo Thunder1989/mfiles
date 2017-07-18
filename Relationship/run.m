@@ -160,17 +160,17 @@ for n = 3:3
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,1);
-    res = gibbs_hmm_uni(cur_ahu,0);
+    res = gibbs_hmm(cur_ahu,0);
     
-%     figure
-%     [ax, h1, h2] = plotyy(1:length(res), cur_ahu, 1:length(res), res(:,2));
-%     hold(ax(1), 'on')
-%     hold(ax(2), 'on')
-%     h3 = plot(1:length(res), res(:,1), 'r--', 'Parent', ax(1));
+    figure
+    [ax, h1, h2] = plotyy(1:length(res), cur_ahu, 1:length(res), res(:,2));
+    hold(ax(1), 'on')
+    hold(ax(2), 'on')
+    h3 = plot(1:length(res), res(:,1), 'r--', 'Parent', ax(1));
 
-    plot(cur_ahu,'k','LineWidth',2)
-    hold on
-    plot(res,'b--','LineWidth',2)
+%     plot(cur_ahu,'k','LineWidth',2)
+%     hold on
+%     plot(res,'b--','LineWidth',2)
 
 end
 

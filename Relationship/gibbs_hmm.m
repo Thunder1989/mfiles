@@ -2,19 +2,32 @@ function output = gibbs_hmm(data, debug)
     %initialization
     X1 = data(:)';
     X2 = [0 diff(X1)];
-    Y1 = EWMA(X1,5);
+    Y1 = EWMA(X1,8);
     Y2 = EWMA(X2,5);
     F = [1 1; 0 1];
     H = [1 0; 0 1];
     
-    fprintf('initial Q and R:\n')
-    Q = cov(diff(Y1),diff(Y2))
-    R = cov(X1 - Y1, X2 - Y2)
-    
     X = [X1(:) X2(:)];
     Y = [Y1(:) Y2(:)];
+
+    fprintf('initial Q and R:\n')
+%     Q = cov(Y(2:end,:) - Y(1:end-1,:)*F')
+%     R = cov(X - Y*H')
+    Q = zeros(2);
+    for t=2:length(X)
+        tmp = Y(t,:)' - F*Y(t-1,:)';
+        Q = Q + tmp * tmp';
+    end
+    Q = Q/(length(X)-1)
+
+    R = zeros(2);
+    for t=2:length(X)
+        tmp = X(t,:)' - H*Y(t,:)';
+        R = R + tmp * tmp';
+    end
+    R = R/(length(X)-1)
     
-    K = 8; %# of iters for EM
+    K = 30; %# of iters for EM
     N = 200; %samples per iter
     
     p_data = zeros(K,1);
@@ -50,10 +63,23 @@ function output = gibbs_hmm(data, debug)
         
         %M step
         Y = mean(Y_sample,3);
-        Q = cov(Y(2:end,:) - Y(1:end-1,:)*F')
-        R = cov(X - Y*H')
-        
-        if debug == 1
+%         Q = cov(Y(2:end,:) - Y(1:end-1,:)*F')
+%         R = cov(X - Y*H')
+        Q = zeros(2);
+        for t=2:length(X)
+            tmp = Y(t,:)' - F*Y(t-1,:)';
+            Q = Q + tmp * tmp';
+        end
+        Q = Q/(length(X)-1)
+
+        R = zeros(2);
+        for t=2:length(X)
+            tmp = X(t,:)' - H*Y(t,:)';
+            R = R + tmp * tmp';
+        end
+        R = R/(length(X)-1)
+
+        if debug==1
             figure
             hold on
             plot(X,'k','LineWidth',2)
@@ -63,6 +89,6 @@ function output = gibbs_hmm(data, debug)
     end
     
     figure
-    plot(p_data, 'k','LineWidth',2)
+    plot(p_data,'k','LineWidth',2)
     
     output = Y;
