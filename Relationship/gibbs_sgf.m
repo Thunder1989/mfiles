@@ -10,11 +10,13 @@ function [Y,Z] = gibbs_sgf(data, debug)
     
     X = [X1(:) X2(:)];
     Y = [Y1(:) Y2(:)];
+    rnd = rand(size(X,1),1);
     Z = zeros(size(X,1),1);
+    Z(rnd>0.5) = 1;
 	M = [.9, .5; .1, .5]; %[p00, p10; p01, p11]
     
     Q = {ones(2) + 10e-10, ones(2) + 10e-10};
- 	R = {eye(2) + 10e-10, eye(2) + 10e-10};
+ 	R = {ones(2) + 10e-10, ones(2) + 10e-10};
     fprintf('initial Q and R:\n')
     for i = 0:1
 	    idx = find(Z==i);
@@ -41,7 +43,7 @@ function [Y,Z] = gibbs_sgf(data, debug)
 			p_tmp = p_tmp/sum(p_tmp);
 
 	        for n = 1:N
-                if p_tmp(1) > rand(1)
+                if p_tmp(1) > rand(1) %todo: change to find min on cumsum
 	        		Z_sample(t,n) = 0;
 	        	else
 	        		Z_sample(t,n) = 1;
@@ -53,12 +55,14 @@ function [Y,Z] = gibbs_sgf(data, debug)
         Y_sample = repmat(Y,1,1,N);
         p_tmp = zeros(N,1);
         for t = 2:size(Y,1)-1
-        	Q_ = Q{Z(t)+1};
-        	R_ = R{Z(t)+1};
-            Sigma_ = (Q_^-1 + (F^-1*Q_*(F^-1)')^-1)^-1;
-            Mu_ = Sigma_* Q_^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
-            Sigma = (Sigma_^-1 + (H^-1*R_*(H^-1)')^-1)^-1;
-            Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_*(H^-1)')^-1 * (H^-1*X(t,:)');
+            Q_prev = Q{Z(t-1)+1};
+        	Q_cur = Q{Z(t)+1};
+        	R_cur = R{Z(t)+1};
+            Sigma_ = (Q_prev^-1 + (F^-1*Q_cur*(F^-1)')^-1)^-1;
+            Mu_ = Sigma_* Q_prev^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_cur*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
+            Sigma = (Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1)^-1;
+            Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
+            
             for n = 1:N
                 Y_sample(t,:,n) = mvnrnd(Mu, Sigma);
             end
@@ -76,14 +80,11 @@ function [Y,Z] = gibbs_sgf(data, debug)
         
         %M step
         Y = mean(Y_sample,3);
-        Z = mean(Z_sample,2); %how to update Z
+        Z = mode(Z_sample,2); %todo: better update Z
         M = get_M(Z);
 	
         for i = 0:1
-            idx = find(Z==i);
-            if ~isempty(idx)
-                [Q{i+1}, R{i+1}] = get_Q_R(idx,X,Y,F,H);
-            end
+            [Q{i+1}, R{i+1}] = get_Q_R(i,X,Y,Z_sample,F,H);
         end
 
         if debug==1
@@ -100,28 +101,30 @@ function [Y,Z] = gibbs_sgf(data, debug)
     plot(p_data,'k','LineWidth',2)
 
 
-function [Q, R] = get_Q_R(idx,X,Y,F,H)
+function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)
     Q = zeros(2);
     R = zeros(2);
-    for i=1:length(idx)
-    	t = idx(i);
-        if t==1
-            continue;
-        end
-        tmp = Y(t,:)' - F*Y(t-1,:)';
-        Q = Q + tmp * tmp';
-    end
-    Q = Q/(length(idx)-1)
 
-    for i=1:length(idx)
-    	t = idx(i);
-    	if t==1
-    		continue
-    	end
-        tmp = X(t,:)' - H*Y(t,:)';
-        R = R + tmp * tmp';
+    ctr = 0;
+    for n = 1:size(Z_sample,2)
+        Z_cur = Z_sample(:,n);
+        idx = find(Z_cur==i);
+        for k = 1:length(idx)
+            t = idx(k);
+            if t==1
+                continue;
+            end
+            tmp = Y(t,:)' - F*Y(t-1,:)';
+            Q = Q + tmp * tmp';
+
+            tmp = X(t,:)' - H*Y(t,:)';
+            R = R + tmp * tmp';
+
+            ctr = ctr + 1;
+        end
     end
-    R = R/(length(idx)-1)
+    Q = Q/ctr
+    R = R/ctr
 
     
 function M = get_M(Z)
