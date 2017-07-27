@@ -2,8 +2,8 @@ close all
 clear
 clc
 
-T = 7*4; % # of days
-D = 7*4; % # of days to plot
+T = 7*2; % # of days
+D = 7*2; % # of days to plot
 Niter = 20;
 Nburn = 0;
 Nplot = 5;
@@ -160,7 +160,7 @@ for n = 3:3
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,1);
-    res = gibbs_hmm(cur_ahu,0);
+    res = gibbs_sgf(cur_ahu,0);
     
     figure
     [ax, h1, h2] = plotyy(1:length(res), cur_ahu, 1:length(res), res(:,2));
