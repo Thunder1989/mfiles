@@ -145,7 +145,7 @@ end
 % acc = sum( vav_corr(:,1)==max(vav_corr')' )/size(vav_corr,1)
 acc = ctr / size(vav_corr,1)
 
-%% gibbs HMM
+%% gibbs sampling based
 % close all
 clc
 num = length(ahus);
@@ -155,19 +155,20 @@ event_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
 % figure
-for n = 3:3
+for n = 2:2
     fn = [path_vav, vavs(n).name];
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
-    cur_ahu = cur_ahu(:,1);
-    res = gibbs_sgf(cur_ahu,0);
+    cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
+    [res,Z,M] = gibbs_sgf(cur_ahu,0);
     
     figure
     [ax, h1, h2] = plotyy(1:length(res), cur_ahu, 1:length(res), res(:,2));
     hold(ax(1), 'on')
     hold(ax(2), 'on')
-    h3 = plot(1:length(res), res(:,1), 'r--', 'Parent', ax(1));
-
+    plot(1:length(res), res(:,1), 'g','Parent', ax(1));
+    plot(1:length(Z), Z*max(cur_ahu), 'k', 'Parent', ax(1));
+    legend('original','filtered','event','vel')
 %     plot(cur_ahu,'k','LineWidth',2)
 %     hold on
 %     plot(res,'b--','LineWidth',2)

@@ -10,6 +10,7 @@ vavs = dir(strcat(path_vav, '*.csv'));
 
 %%
 close all
+clc
 wrong = [];
 correct = [];
 ctr = 0;
@@ -21,12 +22,14 @@ N = 5*2; %Kalman Filter lookback window size
 
 ahu_event = cell(length(ahus),1);
 ahu_kf_res = cell(length(ahus),1);
+ahu_sgf = cell(length(ahus),1);
+ahu_sgf_res = cell(length(ahus),1);
 ahu_mle_res = cell(length(ahus),1);
 ahu_event_ondiff = cell(length(ahus),1);
 ahu_list = zeros(length(ahus),1);
 num = length(ahus);
 for n = 1:num
-%     fprintf('processing %s\n',ahus(n).name)
+    fprintf('processing %s\n',ahus(n).name)
     fn = [path_ahu, ahus(n).name];
     cur_ahuid = str2double(ahus(n).name(5));
     data_ahu = csvread(fn,1);
@@ -42,15 +45,21 @@ for n = 1:num
     ahu_list(n) = cur_ahuid;
     
 %     kf = StandardKalmanFilter(data_ahu',8,N,'EWMA'); 
-    kf = gibbs_hmm_uni(data_ahu,0);
-    diff2 = abs(data_ahu' - kf);
-    diff2(isnan(diff2)) = 0;
-    ahu_kf_res{n} = diff2(2:end-1); %TBD: make the manual period self-deciding
+%     kf = gibbs_hmm_uni(data_ahu,0);
+%     diff2 = abs(data_ahu' - kf);
+%     diff2(isnan(diff2)) = 0;
+%     ahu_kf_res{n} = diff2(2:end-1); %TBD: make the manual period self-deciding
 
 %     [mle, x] = data_mle(data_ahu',1); 
 %     diff2 = abs(data_ahu - mle(:));
 %     diff2(isnan(diff2)) = 0;
 %     ahu_mle_res{n} = diff2;
+
+    [y,z,p] = gibbs_sgf(data_ahu,0);
+%     ahu_sgf{n} = z;
+    diff2 = abs(data_ahu - y(:,1));
+    diff2(isnan(diff2)) = 0;
+    ahu_sgf_res{n} = diff2;
 
 %     ahu_event_ondiff{n} = get_z_hmm(data_ahu);
 
@@ -60,6 +69,8 @@ num = length(vavs);
 vav_edge = cell(num,1);
 vav_event = cell(num,1);
 vav_kf_res = cell(num,1);
+vav_sgf = cell(num,1);
+vav_sgf_res = cell(num,1);
 vav_mle_res = cell(num,1);
 vav_event_ondiff = cell(length(ahus),1);
 res = zeros(num,length(ahus)+1);
@@ -68,7 +79,7 @@ score_tmp = [];
 w = 0.5;
 debug = 0;
 for m = 1:num
-%     fprintf('processing %s\n',vavs(m).name)
+    fprintf('processing %s\n',vavs(m).name)
     fn = [path_vav, vavs(m).name];
     ahuid = str2double(vavs(m).name(5));
     data_vav = csvread(fn,1);
@@ -88,12 +99,19 @@ for m = 1:num
     vav_score = zeros(length(ahus),1);
     
 %     kf = StandardKalmanFilter(data_vav',8,N,'EWMA'); 
-    kf = gibbs_hmm_uni(data_vav,0);
-    diff1 = abs(data_vav' - kf);
+%     kf = gibbs_hmm_uni(data_vav,0);
+%     diff1 = abs(data_vav' - kf);
+%     diff1(isnan(diff1)) = 0;
+%     diff1 = diff1(2:end-1);
+%     vav_kf_res{m} = diff1;
+
+    [y,z,p] = gibbs_sgf(data_vav,0);
+%     vav_sgf{m} = z;
+    diff1 = abs(data_vav - y(:,1));
     diff1(isnan(diff1)) = 0;
-    diff1 = diff1(2:end-1);
-    vav_kf_res{m} = diff1;
-    
+    vav_sgf_res{n} = diff1;
+%     z_vav = z;
+
 %     [mle, x] = data_mle(data_vav',1); 
 %     diff1 = abs(data_vav - mle(:));
 %     diff1(isnan(diff2)) = 0;
@@ -108,10 +126,10 @@ for m = 1:num
         data_ahu = csvread(fn,1);
         data_ahu = data_ahu(1:4*24*T,end);
         e_ahu = ahu_event{n};
-        diff2 = ahu_kf_res{n};
-%         diff2 = ahu_mle_res{n};
+        diff2 = ahu_sgf_res{n};
 %         z_ahu = ahu_event_ondiff{n};
-
+%         z_ahu = ahu_sgf{n};
+        
         %debugging block
         if debug == 1
             figure
@@ -128,6 +146,7 @@ for m = 1:num
             legend('vav','ahu','vav\_kf\_res','ahu\_kf\_res','FontSize', 12);
             pause
         end
+        
         % AHU col 3 - SupplyAirPress,  5 - SupplyFanSpeedOutput
         % VAV col 1 - AirFlowNormalized, 2 - AirValvePosition
         cur_corr = corrcoef(data_ahu, data_vav);
@@ -139,7 +158,7 @@ for m = 1:num
 
 %         vav_score(n) = matched_power_score(14, vav_edge{m}, data_vav, data_ahu); %k=14
         vav_score(n) = dot(diff1, diff2)/(norm(diff1)*norm(diff2));
-%         vav_score(n) = dot(z_ahu, z_vav)/(norm(z_ahu)*norm(z_vav)); 
+%         vav_score(n) = abs( dot(z_ahu, z_vav) ) / (norm(z_ahu)*norm(z_vav)); 
         
     end
     
