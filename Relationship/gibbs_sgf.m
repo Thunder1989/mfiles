@@ -3,8 +3,8 @@ function [Y,Z,M] = gibbs_sgf(data, debug)
     %------initialization------
     X1 = data(:)';
     X2 = [0 diff(X1)];
-    Y1 = EWMA(X1,8);
-    Y2 = EWMA(X2,5);
+    Y1 = EWMA(X1,5);
+    Y2 = EWMA(X2,3);
     X = [X1(:) X2(:)];
     Y = [Y1(:) Y2(:)];
     rnd = rand(size(X,1),1);
@@ -21,7 +21,7 @@ function [Y,Z,M] = gibbs_sgf(data, debug)
 %     fprintf('initial Q and R:\n');
     class_mapped = map_i(R);
     for i = 0:1
-        F = F_{class_mapped(i)};
+%         F = F_{class_mapped(i)};
         [Q{i+1}, R{i+1}] = get_Q_R(i,X,Y,Z,F,H);
     end
 
@@ -66,18 +66,23 @@ function [Y,Z,M] = gibbs_sgf(data, debug)
         	R_cur = R{Z(t)+1};
 %             celldisp(R)
 %             Z(t)
-            F = F_{class_mapped(Z(t))};
+%             F = F_{class_mapped(Z(t))};
 
             Sigma_ = (Q_cur^-1 + (F^-1*Q_next*(F^-1)')^-1)^-1;
             Mu_ = Sigma_* Q_cur^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
             Sigma = (Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1)^-1;
             Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
-
-            for n = 1:N
-                if class_mapped(Z(t)) == 1
+            
+            if class_mapped(Z(t))==1
+                for n = 1:N
                     Y_sample(t,:,n) = mvnrnd(Mu, Sigma);
-                else
-                    Y_sample(t,:,n) = normrnd(g_mu, g_sigma); %event period, sampling vel from a global norm
+                end           
+            else
+                for n = 1:N
+                    Sigma_tmp = diag(diag(Sigma));
+                    tmp = mvnrnd(Mu, Sigma_tmp);
+                    Y_sample(t,1,n) = tmp(1);
+                    Y_sample(t,2,n) = normrnd(g_mu, g_sigma); %sample vel from a global norm
                 end
             end
             
@@ -98,11 +103,11 @@ function [Y,Z,M] = gibbs_sgf(data, debug)
         M = get_M(Z_sample);
 	
         for i = 0:1
-            F = F_{class_mapped(i)};
-            [Q{i+1}, R{i+1}] = get_Q_R(i,X,Y,Z_sample,F,H);
+%             F = F_{class_mapped(i)};
+            [Q{i+1}, R{i+1}] = get_Q_R(i,X,Y,Z_sample,F,H); %check: use Y_sample?
         end
         
-        [g_mu, g_sigma] = get_global_para(get_event_i(R),Y,Z_sample);
+        [g_mu, g_sigma] = get_global_para(get_event_i(R),Y,Z);
 
         if debug==1
             figure
@@ -149,9 +154,9 @@ function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)
     R = R/ctr;
 
 
-function [g_mu, g_sigma] = get_global_para(i,Y,Z_sample)
+function [g_mu, g_sigma] = get_global_para(i,Y,Z)
     
-    y_temp = Y(Z_sample==i);
+    y_temp = Y(Z==i,2);
     g_mu = mean(y_temp(:));
     g_sigma = std(y_temp(:));
         
@@ -195,9 +200,9 @@ function idx = get_event_i(R)
     R_max = R_max(end);
     
     if R{1}(end) == R_max %larger r for event
-        idx = 1;
+        idx = 0;
     else
-        idx = 2;
+        idx = 1;
     end
 
     
