@@ -32,7 +32,7 @@ function [Y,Z,M] = gibbs_sgf(data, debug)
     N = 100; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
-        fprintf('--------------iter# %d--------------\n',k);
+%         fprintf('--------------iter# %d--------------\n',k);
 
         %E step
         class_mapped = map_i(R);
@@ -122,9 +122,9 @@ function [Y,Z,M] = gibbs_sgf(data, debug)
 %     figure
 %     plot(p_data,'k','LineWidth',2)
 
-    M
-    celldisp(Q)
-    celldisp(R)
+%     M
+%     celldisp(Q)
+%     celldisp(R)
     
 
 function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)

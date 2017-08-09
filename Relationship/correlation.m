@@ -8,7 +8,7 @@ path_vav = './data_vav/';
 ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
-%%
+%% correlation accuracy
 close all
 clc
 wrong = [];
@@ -56,7 +56,7 @@ for n = 1:num
 %     ahu_mle_res{n} = diff2;
 
     [y,z,p] = gibbs_sgf(data_ahu,0);
-%     ahu_sgf{n} = z;
+    ahu_sgf{n} = z;
     diff2 = abs(data_ahu - y(:,1));
     diff2(isnan(diff2)) = 0;
     ahu_sgf_res{n} = diff2;
@@ -97,6 +97,7 @@ for m = 1:num
     vav_corr = zeros(length(ahus),1);
     vav_sim = zeros(length(ahus),1);
     vav_score = zeros(length(ahus),1);
+    vav_score1 = zeros(length(ahus),1);
     
 %     kf = StandardKalmanFilter(data_vav',8,N,'EWMA'); 
 %     kf = gibbs_hmm_uni(data_vav,0);
@@ -110,7 +111,7 @@ for m = 1:num
     diff1 = abs(data_vav - y(:,1));
     diff1(isnan(diff1)) = 0;
     vav_sgf_res{n} = diff1;
-%     z_vav = z;
+    z_vav = z;
 
 %     [mle, x] = data_mle(data_vav',1); 
 %     diff1 = abs(data_vav - mle(:));
@@ -128,7 +129,7 @@ for m = 1:num
         e_ahu = ahu_event{n};
         diff2 = ahu_sgf_res{n};
 %         z_ahu = ahu_event_ondiff{n};
-%         z_ahu = ahu_sgf{n};
+        z_ahu = ahu_sgf{n};
         
         %debugging block
         if debug == 1
@@ -158,7 +159,7 @@ for m = 1:num
 
 %         vav_score(n) = matched_power_score(14, vav_edge{m}, data_vav, data_ahu); %k=14
         vav_score(n) = dot(diff1, diff2)/(norm(diff1)*norm(diff2));
-%         vav_score(n) = abs( dot(z_ahu, z_vav) ) / (norm(z_ahu)*norm(z_vav)); 
+        vav_score1(n) = abs( dot(z_ahu, z_vav) ) / (norm(z_ahu)*norm(z_vav)); 
         
     end
     
@@ -185,10 +186,14 @@ for m = 1:num
         true = find(ahu_list==ahuid);
         predicted = find(vav_sim==max(vav_sim));
         wrong = [wrong; vav_sim', m, true, predicted, entropy(vav_sim), flag, vav_sim(predicted)-vav_sim(true)];
-        max_in_all = find(vav_score==max(vav_score),1) == true;
+
+        max_in_all = ismember( true, find(vav_score==max(vav_score),1) );
+        max_in_all1 = ismember( true, find(vav_score1==max(vav_score1),1) );
+        
         topk_score = vav_score(i(1:k));
         max_in_topk = vav_score(true)==max(topk_score);
-        wrong_test = [wrong_test; vav_score', true, predicted, find(vav_score==max(vav_score),1), max_in_all, max_in_topk];
+        
+        wrong_test = [wrong_test; vav_score', true, predicted, find(vav_score==max(vav_score),1), max_in_all, max_in_all1, max_in_topk];
     end
     
     res(m,1:end-1) = vav_sim;
@@ -203,6 +208,8 @@ fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
 % tmp = sum(wrong_test(:,12)| wrong_test(:,13)) + size(correct,1);
 tmp = sum(wrong_test(:,12)) + size(correct,1);
 fprintf('acc on combined is %.4f\n', tmp/num);
+tmp = sum(wrong_test(:,13)) + size(correct,1);
+fprintf('acc on combined1 is %.4f\n', tmp/num);
 % tmp = sum(wrong_test(:,13)) + size(correct,1);
 % fprintf('acc__ on combined is %.4f\n', tmp/num);
 

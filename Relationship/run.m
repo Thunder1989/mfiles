@@ -163,16 +163,19 @@ for n = 3:3
     [res,Z,M] = gibbs_sgf(cur_ahu,0);
     
     figure
-    [ax, h1, h2] = plotyy(1:length(res), cur_ahu, 1:length(res), res(:,2));
-    hold(ax(1), 'on')
-    hold(ax(2), 'on')
-    plot(1:length(res), res(:,1), 'g','Parent', ax(1));
-%     stem(1:length(Z), Z*max(cur_ahu), 'k', 'Parent', ax(1), 'Marker','None');
-    area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
-    legend('original','filtered','event','vel')
-%     plot(cur_ahu,'k','LineWidth',2)
-%     hold on
-%     plot(res,'b--','LineWidth',2)
+    hold on
+    yyaxis left
+    %event in shade
+    stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
+    %original data
+    plot(1:length(res), cur_ahu,'k-')
+    %filtered data
+    plot(1:length(res), res(:,1),'r-')
+    yyaxis right
+    %velocity
+    plot(1:length(res), res(:,2),'b')
+%     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
+    legend('event','original','filtered','vel')
 
 end
 
