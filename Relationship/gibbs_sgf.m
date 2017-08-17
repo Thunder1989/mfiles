@@ -42,19 +42,19 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
         %sample Z
         Z_sample = repmat(Z,1,N);
         for t = 2:length(Z)-1 %todo: shuffle the order
-        	p_tmp = zeros(2,1);
-        	for i = 0:length(p_tmp)-1
-        		p_tmp(i+1) = M( i+1, Z(t-1)+1 ) * M( Z(t+1)+1, i+1 ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i+1});
-        	end
-			p_tmp = p_tmp/sum(p_tmp);
+            p_tmp = zeros(2,1);
+            for i = 1:length(p_tmp)
+                p_tmp(i) = M( i, Z(t-1)+1 ) * M( Z(t+1)+1, i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i});
+            end
+            p_tmp = p_tmp/sum(p_tmp);
 
-	        for n = 1:N
+            for n = 1:N
                 if p_tmp(1) > rand(1) %todo: change to find min on cumsum
-	        		Z_sample(t,n) = 0;
-	        	else
-	        		Z_sample(t,n) = 1;
+                    Z_sample(t,n) = 0;
+                else
+                    Z_sample(t,n) = 1;
                 end
-	        end
+            end
         end
 
 		%sample Y
