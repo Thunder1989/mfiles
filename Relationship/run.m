@@ -160,20 +160,20 @@ for n = 3:3
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,end); %ahu last col, vav 1st col
-    [res,Z,M] = gibbs_sgf(cur_ahu,0);
+    [res,Z,M] = gibbs_sgf(cur_ahu,0,0);
     
     figure
     hold on
     yyaxis left
-    %event in shade
+    %events in shade
     stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
     %original data
     plot(1:length(res), cur_ahu,'k-')
     %filtered data
-    plot(1:length(res), res(:,1),'r-')
+    plot(1:length(res), res(:,1),'g-')
     yyaxis right
     %velocity
-    plot(1:length(res), res(:,2),'b')
+    plot(1:length(res), res(:,2),'r')
 %     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
     legend('event','original','filtered','vel')
 
