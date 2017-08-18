@@ -74,25 +74,25 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
             
 %             if Z(t)~=Z(t-1) || Z(t)~=Z(t+1)
             if class_mapped(Z(t-1))==1 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==1 ...
-                || class_mapped(Z(t-1))==2 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==2
+                || class_mapped(Z(t-1))==2 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==2 
                 %010 or 101: p(x_t|y_t)
                 Sigma = H^-1*R_cur*(H^-1)';
                 Mu = H^-1*X(t,:)';
             elseif class_mapped(Z(t-1))==2 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==1 ...
                 || class_mapped(Z(t-1))==1 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==2
                 %110 or 001: p(x_t|y_t) p(y_t|y_t-1)
-                Sigma = (Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1)^-1;
+                Sigma = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
                 Mu = Sigma * Q_cur^-1 * (F*Y(t-1,:)') + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
             elseif class_mapped(Z(t-1))==2 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==1 ...
                 || class_mapped(Z(t-1))==1 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==2
                 %100 or 011: p(x_t|y_t) p(y_t|y_t+1)
-                Sigma = ((F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1)^-1;
+                Sigma = ( (F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
                 Mu = Sigma * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)') + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
             else
                 %normal case - product of 3 gaussians
-                Sigma_ = (Q_cur^-1 + (F^-1*Q_next*(F^-1)')^-1)^-1;
+                Sigma_ = ( Q_cur^-1 + (F^-1*Q_next*(F^-1)')^-1 )^-1;
                 Mu_ = Sigma_* Q_cur^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
-                Sigma = (Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1)^-1;
+                Sigma = ( Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
                 Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
             end
             
@@ -136,6 +136,9 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
         
     end
     
+%     Z = mean(Z_sample(:,end-20:end),2);
+    Z = Z_sample;
+
 %     figure
 %     plot(p_data,'k','LineWidth',2)
 

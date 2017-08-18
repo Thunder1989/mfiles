@@ -160,18 +160,18 @@ for n = 3:3
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,end); %ahu last col, vav 1st col
-    [res,Z,M] = gibbs_sgf(cur_ahu,0,0);
+    [res,Z,M] = gibbs_sgf(cur_ahu,1,0);
     
     figure
     hold on
-    yyaxis left
+%     yyaxis left
     %events in shade
     stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
     %original data
     plot(1:length(res), cur_ahu,'k-')
     %filtered data
     plot(1:length(res), res(:,1),'g-')
-    yyaxis right
+%     yyaxis right
     %velocity
     plot(1:length(res), res(:,2),'r')
 %     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
@@ -265,3 +265,22 @@ for i=1:size(y)
 end
 hold off
 close(writerObj); % Saves the movie.
+
+
+%% tmp
+% Z = mode(Z_(:,end-10:end),2);
+Z = mean(Z_(:,1:4:end),2);
+figure
+hold on
+%     yyaxis left
+%events in shade
+stem(1:length(Z), (1-Z)*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
+%original data
+plot(1:length(res), cur_ahu,'k-')
+%filtered data
+plot(1:length(res), res(:,1),'g-')
+%     yyaxis right
+%velocity
+plot(1:length(res), res(:,2),'r')
+%     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
+legend('event','original','filtered','vel')
