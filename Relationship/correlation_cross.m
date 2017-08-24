@@ -120,10 +120,12 @@ for n = 1:num
     end
 end
 
+%%
 k = 3;
 num = length(vavs);
 acc = zeros(vav_measure_num, ahu_measure_num);
 for vav_measure_id = 1:vav_measure_num
+% for vav_measure_id = 1:1
 
     for ahu_measure_id = 1:ahu_measure_num
 %     for ahu_measure_id = 1:1
@@ -159,9 +161,9 @@ for vav_measure_id = 1:vav_measure_num
                     vav_score(ahu_id) = dot(diff1,diff2) / ( norm(diff1) * norm(diff2) );
 %                 vav_score1(n) = abs( dot(z_ahu, z_vav) ) / (norm(z_ahu)*norm(z_vav)); 
                 end
-            end            
+            end
             
-            if ismember(ahuid, ahu_list(vav_sim==max(vav_sim))) && max(vav_sim)~=0
+            if ismember(ahuid, ahu_list(vav_sim==max(vav_sim))) && max(vav_sim)~=0 && length( find(vav_sim==max(vav_sim)) ) < length(ahus)
                 ctr = ctr + 1;
                 correct = [correct; vav_sim', vav_id, find(ahu_list==ahuid), find(vav_score==max(vav_score),1)];
             else
