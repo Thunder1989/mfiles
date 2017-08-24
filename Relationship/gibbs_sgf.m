@@ -4,7 +4,7 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
     X1 = data(:)';
     X2 = [0 diff(X1)];
     Y1 = EWMA(X1,5);
-    Y2 = EWMA(X2,3);
+    Y2 = EWMA(X2,4);
     X = [X1(:) X2(:)];
     Y = [Y1(:) Y2(:)];
     rnd = rand(size(X,1),1);
@@ -31,7 +31,7 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
     
 	%------EM------
     K = 10; % iters for EM
-    N = 100; % samples per iter
+    N = 200; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
         fprintf('--------------iter# %d--------------\n',k);
@@ -72,33 +72,39 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
                 F = F_{class_mapped(Z(t))};
             end
             
-%             if Z(t)~=Z(t-1) || Z(t)~=Z(t+1)
             if class_mapped(Z(t-1))==1 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==1 ...
                 || class_mapped(Z(t-1))==2 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==2 
                 %010 or 101: p(x_t|y_t)
-                Sigma = H^-1*R_cur*(H^-1)';
-                Mu = H^-1*X(t,:)';
+                Sigma_e = H^-1*R_cur*(H^-1)';
+                Mu_e = H^-1*X(t,:)';
             elseif class_mapped(Z(t-1))==2 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==1 ...
                 || class_mapped(Z(t-1))==1 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==2
                 %110 or 001: p(x_t|y_t) p(y_t|y_t-1)
-                Sigma = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
-                Mu = Sigma * Q_cur^-1 * (F*Y(t-1,:)') + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
+                Sigma_e = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
+                Mu_e = Sigma_e * Q_cur^-1 * (F*Y(t-1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
             elseif class_mapped(Z(t-1))==2 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==1 ...
                 || class_mapped(Z(t-1))==1 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==2
                 %100 or 011: p(x_t|y_t) p(y_t|y_t+1)
-                Sigma = ( (F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
-                Mu = Sigma * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)') + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
-            else
-                %normal case - product of 3 gaussians
-                Sigma_ = ( Q_cur^-1 + (F^-1*Q_next*(F^-1)')^-1 )^-1;
-                Mu_ = Sigma_* Q_cur^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
-                Sigma = ( Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
-                Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
+                Sigma_e = ( (F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
+                Mu_e = Sigma_e * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
             end
             
-            for n = 1:N
-                Y_sample(t,:,n) = mvnrnd(Mu, Sigma);
-            end           
+            %normal case - product of 3 gaussians, always used for sampling position 
+            Sigma_ = ( Q_cur^-1 + (F^-1*Q_next*(F^-1)')^-1 )^-1;
+            Mu_ = Sigma_* Q_cur^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
+            Sigma = ( Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
+            Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
+
+            if Z(t)~=Z(t-1) || Z(t)~=Z(t+1)
+                for n = 1:N
+                    Y_sample(t,1,n) = normrnd(Mu(1), Sigma(1,1));
+                    Y_sample(t,2,n) = normrnd(Mu_e(2), Sigma_e(2,2));
+                end
+            else
+                for n = 1:N
+                    Y_sample(t,:,n) = mvnrnd(Mu, Sigma);
+                end
+            end
             
             %data likelihood
             p = 0;

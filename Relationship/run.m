@@ -160,7 +160,7 @@ for n = 3:3
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,end); %ahu last col, vav 1st col
-    [res,Z,M] = gibbs_sgf(cur_ahu,0,0);
+    [res,Z,M] = gibbs_sgf(cur_ahu,1,0);
     
     figure
     hold on
@@ -271,12 +271,13 @@ close(writerObj); % Saves the movie.
 [res,Z_,M] = gibbs_sgf(Nin(:),1,0);
 %%
 % Z = mode(Z_(:,end-10:end),2);
-Z = mean(Z_(:,1:5:end),2);
+Z = mean(Z_(:,1:3:end),2);
 figure
 hold on
 %     yyaxis left
 %events in shade
-stem(1:length(Z), (1-Z)*max(cur_ahu), 'Marker','None', 'LineWidth',1, 'Color',[.8 .8 .8]);
+% stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
+stem(1:length(Z), (1-Z)*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
 % stem(-10*event_times(:), 'LineWidth',1, 'Color',[.3 .3 .3]);
 %original data
 plot(1:length(res), cur_ahu,'k-')

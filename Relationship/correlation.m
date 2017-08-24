@@ -3,8 +3,8 @@ clc
 
 T = 7*4; % # of days
 
-path_ahu = 'D:\TraneData\cut\ahu_property_file_10642_cut\ahu\';
-path_vav = 'D:\TraneData\cut\ahu_property_file_10642_cut\vav\';
+path_ahu = 'D:\TraneData\cut\ahu_property_file_10320_cut\ahu\';
+path_vav = 'D:\TraneData\cut\ahu_property_file_10320_cut\vav\';
 ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
