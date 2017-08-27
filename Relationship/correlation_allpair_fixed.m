@@ -3,8 +3,8 @@ clc
 
 T = 7*4; % # of days
 
-path_ahu = 'D:\TraneData\cut\ahu_property_file_10606_cut\ahu_common\';
-path_vav = 'D:\TraneData\cut\ahu_property_file_10606_cut\vav_common\';
+path_ahu = 'D:\TraneData\cut\ahu_property_file_10320_cut\ahu_common\';
+path_vav = 'D:\TraneData\cut\ahu_property_file_10320_cut\vav_common\';
 ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
@@ -120,22 +120,23 @@ for n = 1:num
     end
 end
 
-%%
+% used a fixed pair to get acc
 k = 3;
 num = length(vavs);
 acc = zeros(vav_measure_num, ahu_measure_num);
+raw1 = cell(vav_measure_num, ahu_measure_num);
+raw2 = cell(vav_measure_num, ahu_measure_num);
 for vav_measure_id = 1:vav_measure_num
-% for vav_measure_id = 1:1
 
     for ahu_measure_id = 1:ahu_measure_num
-%     for ahu_measure_id = 1:1
 
         correct = [];
         wrong = [];
         wrong_test = [];
         ctr = 0;
         topk = 0;
-        for vav_id = 1:length(vavs)
+%         for vav_id = 1:length(vavs)
+        for vav_id = 1:1
         
             ahuid = vav_to_ahu_mapping(vav_id);
             e_vav = vav_event{vav_id, vav_measure_id};
@@ -144,6 +145,7 @@ for vav_measure_id = 1:vav_measure_num
             vav_sim = zeros(length(ahus),1);
             vav_score = zeros(length(ahus),1);
             for ahu_id = 1:length(ahus)
+
                 e_ahu = ahu_event{ahu_id, ahu_measure_id};
                 diff2 = ahu_kf_res{ahu_id, ahu_measure_id};
 
@@ -166,6 +168,7 @@ for vav_measure_id = 1:vav_measure_num
             if ismember(ahuid, ahu_list(vav_sim==max(vav_sim))) && max(vav_sim)~=0 && length( find(vav_sim==max(vav_sim)) ) < length(ahus)
                 ctr = ctr + 1;
                 correct = [correct; vav_sim', vav_id, find(ahu_list==ahuid), find(vav_score==max(vav_score),1)];
+                raw1{vav_measure_id, ahu_measure_id} = vav_sim;
             else
                 [v,i] = sort(vav_sim,'descend');
                 flag = 0;
@@ -184,9 +187,14 @@ for vav_measure_id = 1:vav_measure_num
                 max_in_topk = vav_score(true)==max(topk_score);
 
                 wrong_test = [wrong_test; vav_score', true, predicted, find(vav_score==max(vav_score),1), max_in_all, max_in_topk];
-                
+                raw1{vav_measure_id, ahu_measure_id} = vav_score;
+
             end
+            
+            raw2{vav_measure_id, ahu_measure_id} = vav_score;
+
         end
+
         
 %             fprintf('--------------------------------------\n');
 %             fprintf('acc on simple cc is %.4f\n', ctr/num);
