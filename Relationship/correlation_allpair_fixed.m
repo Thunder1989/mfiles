@@ -3,8 +3,9 @@ clc
 
 T = 7*4; % # of days
 
-path_ahu = 'D:\TraneData\cut\ahu_property_file_10320_cut\ahu_common\';
-path_vav = 'D:\TraneData\cut\ahu_property_file_10320_cut\vav_common\';
+bid = 652;
+path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu_common\');
+path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
 ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
@@ -120,6 +121,7 @@ for n = 1:num
     end
 end
 
+%%
 % used a fixed pair to get acc
 k = 3;
 num = length(vavs);
@@ -135,8 +137,7 @@ for vav_measure_id = 1:vav_measure_num
         wrong_test = [];
         ctr = 0;
         topk = 0;
-%         for vav_id = 1:length(vavs)
-        for vav_id = 1:1
+        for vav_id = 1:length(vavs)
         
             ahuid = vav_to_ahu_mapping(vav_id);
             e_vav = vav_event{vav_id, vav_measure_id};
@@ -204,6 +205,8 @@ for vav_measure_id = 1:vav_measure_num
 %             tmp = sum(wrong_test(:,12)| wrong_test(:,13)) + size(correct,1);
         if isempty(wrong_test)
             acc(vav_measure_id, ahu_measure_id) = size(correct,1)/num;
+        elseif isempty(correct)
+            acc(vav_measure_id, ahu_measure_id) = sum(wrong_test(:,end-1))/num;
         else
             tmp = sum(wrong_test(:,end-1)) + size(correct,1);
             acc(vav_measure_id, ahu_measure_id) = tmp/num;
