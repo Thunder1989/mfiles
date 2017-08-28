@@ -87,8 +87,17 @@ save(fn, 'num', 'vav_assignment', 'ahu_list', 'ahu_event', 'ahu_kf_res', 'vav_ev
 %% auto pick a pair for each vav and compute accuracy
 clc
 bid = 642;
+path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
+vavs = dir(strcat(path_vav, '*.csv'));
 fn = strcat('feature_10', num2str(bid));
 load(fn);
+if bid == 596 %take out column for enthalpy 
+    ahu_event(:,2) = []; 
+    ahu_kf_res(:,2) = []; 
+else
+    ahu_event(:,1) = []; 
+    ahu_kf_res(:,1) = []; 
+end
 ahu_num = size(ahu_kf_res,1);
 ahu_measure_num = size(ahu_kf_res,2);
 ctr = 0;
@@ -130,17 +139,20 @@ for vav_id = 1:num
         end
     end
     
-    [i,j] = find_cell(raw1);
+    [i,j] = find_cell2(raw1);
     vav_sim = raw1{i,j};
     if ismember(ahuid, ahu_list(vav_sim==max(vav_sim))) && max(vav_sim)~=0 && length( find(vav_sim==max(vav_sim)) ) < ahu_num
         ctr = ctr + 1;
     else
-        [i,j] = find_cell(raw2);
+        [i,j] = find_cell2(raw2);
         vav_score = raw2{i,j};
         true = find(ahu_list==ahuid);
         max_in_all = ismember( true, find(vav_score==max(vav_score)) ) & length( find(vav_score==max(vav_score)) ) < ahu_num;
         if max_in_all == 1
             ctr = ctr + 1;
+        else
+            fprintf('failed on %s (%d) with pair (%d,%d)\n', vavs(vav_id).name, true, i, j);
+            disp(vav_score')
         end
     end
 end
