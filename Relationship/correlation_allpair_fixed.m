@@ -196,7 +196,6 @@ for vav_measure_id = 1:vav_measure_num
 
         end
 
-        
 %             fprintf('--------------------------------------\n');
 %             fprintf('acc on simple cc is %.4f\n', ctr/num);
 %             fprintf('acc on canny edge seq cossim is %.4f\n', ctr/num);

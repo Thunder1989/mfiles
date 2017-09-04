@@ -2,7 +2,7 @@ clear
 clc
 
 T = 7*4; % # of days
-bid = 652;
+bid = 320;
 path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu_common\');
 path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
 ahus = dir(strcat(path_ahu, '*.csv'));
@@ -86,7 +86,7 @@ save(fn, 'num', 'vav_assignment', 'ahu_list', 'ahu_event', 'ahu_kf_res', 'vav_ev
 
 %% auto pick a pair for each vav and compute accuracy
 clc
-bid = 642;
+bid = 320;
 path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
 vavs = dir(strcat(path_vav, '*.csv'));
 fn = strcat('feature_10', num2str(bid));
@@ -142,6 +142,7 @@ for vav_id = 1:num
     [i,j] = find_cell2(raw1);
     vav_sim = raw1{i,j};
     if ismember(ahuid, ahu_list(vav_sim==max(vav_sim))) && max(vav_sim)~=0 && length( find(vav_sim==max(vav_sim)) ) < ahu_num
+%         fprintf('bingo1! - %d\n', length(find(vav_sim==max(vav_sim))) );
         ctr = ctr + 1;
     else
         [i,j] = find_cell2(raw2);
@@ -149,6 +150,7 @@ for vav_id = 1:num
         true = find(ahu_list==ahuid);
         max_in_all = ismember( true, find(vav_score==max(vav_score)) ) & length( find(vav_score==max(vav_score)) ) < ahu_num;
         if max_in_all == 1
+%             fprintf('bingo2! - %d\n', length(find(vav_score==max(vav_score))) );
             ctr = ctr + 1;
         else
             fprintf('failed on %s (%d) with pair (%d,%d)\n', vavs(vav_id).name, true, i, j);
