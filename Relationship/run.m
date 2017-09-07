@@ -155,11 +155,11 @@ event_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
 % figure
-for n = 3:3
-    fn = [path_ahu, ahus(n).name];
+for n = 2:2
+    fn = [path_vav, vavs(n).name];
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
-    cur_ahu = cur_ahu(:,end); %ahu last col, vav 1st col
+    cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
     [res,Z,M] = gibbs_sgf(cur_ahu,1,0);
     
     figure
