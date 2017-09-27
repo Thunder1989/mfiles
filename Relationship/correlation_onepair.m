@@ -1,30 +1,28 @@
 function acc = correlation_onepair(bid, week)
 
-path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu\');
-path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav\');
+path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu_common\');
+path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
 ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
 N = 5*2; %Kalman Filter lookback window size
+M = 8; %EWMA window size
 T = 7*week; % # of days
 
 ahu_event = cell(length(ahus),1);
 ahu_kf_res = cell(length(ahus),1);
-ahu_sgf = cell(length(ahus),1);
-ahu_sgf_res = cell(length(ahus),1);
-ahu_mle_res = cell(length(ahus),1);
-ahu_event_ondiff = cell(length(ahus),1);
 ahu_list = zeros(length(ahus),1);
 num = length(ahus);
 for n = 1:num
 %     fprintf('processing %s\n',ahus(n).name)
     fn = [path_ahu, ahus(n).name];
+    fn = regexprep(fn,'_cut','_all');
     str = regexp(ahus(n).name,'[0-9]+','match');
     cur_ahuid = str2double(str(1));
     data_ahu = csvread(fn,1);
     data_ahu = data_ahu(1:4*24*T,end);
 
-    delta = [0 diff(data_ahu)'];
+%     delta = [0 diff(data_ahu)'];
     e_ahu = edge(repmat(data_ahu',3,1), 0.4); %th = 0.4
     e_ahu = e_ahu(1,:);
     e_ahu = e_ahu | [false e_ahu(1:end-1)] | [e_ahu(2:end) false];    
@@ -33,8 +31,11 @@ for n = 1:num
 
     ahu_event{n} = double(e_ahu);
     ahu_list(n) = cur_ahuid;
-    
-    kf = StandardKalmanFilter(data_ahu',8,N,'EWMA'); 
+  
+%     res = mmpp(reshape(data_ahu,4*24,[]), []);
+%     tmp = res.Z(:,:,end);
+%     ahu_kf_res{n} = tmp(:);
+    kf = StandardKalmanFilter(data_ahu',M,N,'EWMA'); 
 %     kf = gibbs_hmm_uni(data_ahu,0);
     diff2 = abs(data_ahu' - kf);
     diff2(isnan(diff2)) = 0;
@@ -59,11 +60,6 @@ num = length(vavs);
 vav_edge = cell(num,1);
 vav_event = cell(num,1);
 vav_kf_res = cell(num,1);
-vav_sgf = cell(num,1);
-vav_sgf_res = cell(num,1);
-vav_mle_res = cell(num,1);
-vav_event_ondiff = cell(length(ahus),1);
-res = zeros(num,length(ahus)+1);
 correct = [];
 wrong = [];
 wrong_test = [];
@@ -73,17 +69,20 @@ ctr1 = 0;
 k = 3;
 topk = 0;
 w = 0.5;
-debug = 0;
 for m = 1:num
 %     fprintf('processed %s\n',vavs(m).name);
 
     fn = [path_vav, vavs(m).name];
+    fn = regexprep(fn,'_cut','_all');
     str = regexp(vavs(m).name,'[0-9]+','match');
     ahuid = str2double(str(1));
     data_vav = csvread(fn,1);
-    data_vav = data_vav(1:4*24*T,3); %for longer period, 3rd col is airflow
-    
-    delta = [0 diff(data_vav)'];
+    if bid ~= 320
+        data_vav = data_vav(1:4*24*T,1); %for longer period, 3rd col is airflow
+    else
+        data_vav = data_vav(1:4*24*T,3); %for longer period, 3rd col is airflow
+    end
+%     delta = [0 diff(data_vav)'];
     e_vav = edge(repmat(data_vav',3,1), 1.25); %th = 1.25 for 320 596, 0.6 for 642
     e_vav = e_vav(1,:);
     vav_edge{m} = double(e_vav);
@@ -97,12 +96,17 @@ for m = 1:num
     vav_sim = zeros(length(ahus),1);
     vav_score = zeros(length(ahus),1);
     
-    kf = StandardKalmanFilter(data_vav',8,N,'EWMA'); 
+    kf = StandardKalmanFilter(data_vav',M,N,'EWMA'); 
 %     kf = gibbs_hmm_uni(data_vav,0);
     diff1 = abs(data_vav' - kf);
     diff1(isnan(diff1)) = 0;
     diff1 = diff1(2:end-1);
     vav_kf_res{m} = diff1;
+
+%     res = mmpp(reshape(data_vav,4*24,[]), []);
+%     tmp = res.Z(:,:,end);
+%     vav_kf_res{n} = tmp(:);
+%     diff1 = tmp(:);
 
 %     [y,z,p] = gibbs_sgf(data_vav,0);
 % %     vav_sgf{m} = z;
@@ -121,30 +125,14 @@ for m = 1:num
 
     for n = 1:length(ahus)
         fn = [path_ahu, ahus(n).name];
+        fn = regexprep(fn,'_cut','_all');
         data_ahu = csvread(fn,1);
         data_ahu = data_ahu(1:4*24*T,end);
         e_ahu = ahu_event{n};
         diff2 = ahu_kf_res{n};
 %         z_ahu = ahu_event_ondiff{n};
 %         z_ahu = ahu_sgf{n};
-        
-        %debugging block
-        if debug == 1
-            figure
-            hold on
-            plot(data_vav,'k','LineWidth',1.5)
-            plot(data_ahu,'r','LineWidth',1.5)
-%             stem(z_vav*max(data_vav),'b','LineWidth',0.5,'Marker','none')
-%             stem(z_ahu*max(data_ahu),'g','LineWidth',0.5,'Marker','none')
-            plot(diff1,'b','LineWidth',1.5)
-            plot(diff2,'g','LineWidth',1.5)
-%             plot([zeros(1,15) diff1],'b','LineWidth',1.5)
-%             stem(50*([zeros(1,15) diff1]>=mean(diff1)+1*std(diff1)),'g','LineWidth',0.5,'Marker','none')
-            title(sprintf('%s vs %s',ahus(n).name(1:end-4),vavs(m).name(1:end-4)));
-            legend('vav','ahu','vav\_kf\_res','ahu\_kf\_res','FontSize', 12);
-            pause
-        end
-        
+              
         % AHU col 3 - SupplyAirPress,  5 - SupplyFanSpeedOutput
         % VAV col 1 - AirFlowNormalized, 2 - AirValvePosition
         cur_corr = corrcoef(data_ahu, data_vav);
@@ -198,14 +186,10 @@ for m = 1:num
 %             pause
 %         end
 %         
-    end
-    
-    res(m,1:end-1) = vav_sim;
-    res(m,end) = find(ahu_list==ahuid);
-
+    end   
 end
 
-fprintf('----output of %d weeks data-----------------\n',week);
+fprintf('----output of %d weeks data on 10%d-----------------\n',week, bid);
 fprintf('acc on simple cc is %.4f\n', ctr/num);
 fprintf('acc on canny edge seq cossim is %.4f\n', ctr1/num);
 fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
@@ -214,6 +198,10 @@ fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
 tmp = sum(wrong_test(:,end-1)) + size(correct,1);
 fprintf('acc on combined is %.4f\n', tmp/num);
 acc = tmp/num;
+
+fid = fopen('C:\Users\dzhon\Dropbox\acc_vs_time.txt','a');
+fprintf(fid, 'acc on %d with %d weeks data - %0.4f\n', bid, week, acc);
+fclose(fid);
 
 % fea_ahu = tfidf(cell2mat(ahu_kf_res));
 % fea_vav = tfidf(cell2mat(vav_kf_res));

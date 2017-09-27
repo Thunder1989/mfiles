@@ -1,9 +1,7 @@
-clear
-clc
+function acc = correlation_allpair_fixed(bid) 
 
 T = 7*4; % # of days
 
-bid = 652;
 path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu_common\');
 path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
 ahus = dir(strcat(path_ahu, '*.csv'));
@@ -121,7 +119,6 @@ for n = 1:num
     end
 end
 
-%%
 % used a fixed pair to get acc
 k = 3;
 num = length(vavs);

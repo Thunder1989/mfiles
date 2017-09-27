@@ -16,7 +16,7 @@ if (numel(events)==0), events = zeros(size(X)); end;
 if (nargin < 5) EQUIV=[3,3]; end;
 
 switch length(ITERS),
-    case 0, Nplot=25;       Nburn=10;       Niter = 100;
+    case 0, Nplot=5;        Nburn=0;        Niter = 10;
     case 1, Nplot=25;       Nburn=10;       Niter = ITERS(1);
     case 2, Nplot=25;       Nburn=ITERS(2); Niter = ITERS(1);
     case 3, Nplot=ITERS(3); Nburn=ITERS(2); Niter = ITERS(1);
