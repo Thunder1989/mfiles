@@ -26,15 +26,13 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
         end
         [Q{i+1}, R{i+1}] = get_Q_R(i,X,Y,Z,F,H);
     end
-
-%     [g_mu, g_sigma] = get_global_para(get_event_i(R),Y,Z);
-    
+   
 	%------EM------
     K = 10; % iters for EM
     N = 200; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
-        fprintf('--------------iter# %d--------------\n',k);
+%         fprintf('--------------iter# %d--------------\n',k);
 
         %E step
         class_mapped = map_i(R);
@@ -44,7 +42,7 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
         for t = 2:length(Z)-1 %todo: shuffle the order
             p_tmp = zeros(2,1);
             for i = 1:length(p_tmp)
-                p_tmp(i) = M( i, Z(t-1)+1 ) * M( Z(t+1)+1, i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i});
+                p_tmp(i) = M( i, Z(t-1)+1 ) * M( Z(t+1)+1, i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i});% * mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
             end
             p_tmp = p_tmp/sum(p_tmp);
 
@@ -129,8 +127,6 @@ function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
             [Q{i+1}, R{i+1}] = get_Q_R(i,X,Y,Z_sample,F,H); %check: use Y_sample?
         end
         
-%         [g_mu, g_sigma] = get_global_para(get_event_i(R),Y,Z);
-
         if debug==1
             figure
             hold on
@@ -180,16 +176,6 @@ function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)
     R = R/ctr;
 
 
-function [g_mu, g_sigma] = get_global_para(i,Y,Z)
-    
-%     Z_prev = [Z(1); Z(1:end-1)];
-%     Z_next = [Z(2:end); Z(end)];
-%     y_temp = Y( Z_prev~=Z | Z_next~=Z, 2);
-    y_temp = Y(Z==i,2);
-    g_mu = mean(y_temp(:));
-    g_sigma = std(y_temp(:));
-    
-    
 function M = get_M(Z_sample)
     M = zeros(2);
     for n = 1:size(Z_sample,2)

@@ -179,51 +179,6 @@ for n = 2:2
 
 end
 
-%% tmp script
-
-vav_tmp = cell2mat(prob_vav);
-vav_e = zeros(size(vav_tmp));
-% figure
-for m = 1:9
-    cur = vav_tmp(m,:);
-    th = mean(cur) + 1*std(cur);
-%     subplot(9,1,m)
-%     hold on
-%     grid on
-%     stem(cur, 'k', 'MarkerSize', 0);
-%     plot(cur>=th, 'ro');
-    vav_e(m,:) = cur>=th;
-end
-
-ahu_tmp = cell2mat(event_ahu);
-ahu_e = zeros(size(ahu_tmp));
-% figure
-for m = 1:8
-    cur = ahu_tmp(m,:);
-    th = mean(cur) + 1*std(cur);
-    ahu_e(m,:) = cur>=th;
-%     subplot(8,1,m)
-%     hold on
-%     grid on
-%     stem(cur, 'b', 'MarkerSize', 0);
-%     plot(cur>=th, 'ro');
-end
-
-% vav_norm = sqrt( sum(vav_e.^2, 2) );
-% ahu_norm = sqrt( sum(ahu_e.^2, 2) );
-% coef = vav_norm * ahu_norm';
-% sim = vav_e * ahu_e' ./ coef;
-
-vav_corr = zeros(size(vav_e,1), size(ahu_e,1));
-for i=1:size(vav_e,1)
-    for j=1:size(ahu_e,1)
-        corr = corrcoef(vav_e(i,:), ahu_e(j,:));
-        vav_corr(i,j) = corr(1,2);
-    end
-end
-
-acc = sum( vav_corr(:,1)==max(vav_corr')' )/size(vav_corr,1)
-
 %%
 vav_ep = cell(size(prob_vav));
 for m=1:9
@@ -276,8 +231,8 @@ figure
 hold on
 %     yyaxis left
 %events in shade
-% stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
-stem(1:length(Z), (1-Z)*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
+stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
+% stem(1:length(Z), (1-Z)*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
 % stem(-10*event_times(:), 'LineWidth',1, 'Color',[.3 .3 .3]);
 %original data
 plot(1:length(res), cur_ahu,'k-')
@@ -288,3 +243,88 @@ plot(1:length(res), res(:,1),'g-')
 plot(1:length(res), res(:,2),'r')
 %     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
 legend('event','original','filtered','vel')
+
+%% clustering
+k = 6;
+data = cellfun(@transpose, vav, 'UniformOutput', false);
+% [idx,C] = kmeans(cell2mat(data),8);
+options = [];
+options.NeighborMode = 'KNN';
+options.k = 10;
+options.WeightMode = 'Cosine';
+% options.t = 1;
+W = constructW(cell2mat(data),options);
+W_ = max(W, W'); %symmetrize w_, N by N
+imagesc(W_);
+pause
+D = diag(sum(W_,2));
+L = D - W_; %unormalized Laplacian
+[evc, evl] = eigs(L); %each column of evc is an eigenvector
+idx = find(diag(evl)>=0);
+input = evc(:,idx(1:k));
+%                 input = evc(:,1:idx(k)); %trick: including extra negative and zero evls, slightly better
+c_idx = kmeans(input,k);
+
+%% acc
+bid = 320;
+week = 4;
+path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu_common\');
+path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
+ahus = dir(strcat(path_ahu, '*.csv'));
+vavs = dir(strcat(path_vav, '*.csv'));
+
+N = 5*2; %Kalman Filter lookback window size
+M = 8; %EWMA window size
+T = 7*week; % # of days
+
+ahu_event = cell(length(ahus),1);
+ahu_kf_res = cell(length(ahus),1);
+ahu_list = zeros(length(ahus),1);
+num = length(ahus);
+for n = 1:num
+%     fprintf('processing %s\n',ahus(n).name)
+    fn = [path_ahu, ahus(n).name];
+    fn = regexprep(fn,'_cut','_all');
+    str = regexp(ahus(n).name,'[0-9]+','match');
+    cur_ahuid = str2double(str(1));
+    ahu_list(n) = cur_ahuid;
+end
+
+num = length(vavs);
+vav_edge = cell(num,1);
+vav_event = cell(num,1);
+vav_kf_res = cell(num,1);
+correct = [];
+wrong = [];
+wrong_test = [];
+
+ctr = 0;
+for m = 1:num
+%     fprintf('processed %s\n',vavs(m).name);
+
+    fn = [path_vav, vavs(m).name];
+    fn = regexprep(fn,'_cut','_all');
+    str = regexp(vavs(m).name,'[0-9]+','match');
+    ahuid = str2double(str(1));
+    e_vav = vav{m};
+    
+    vav_sim = zeros(length(ahus),1);
+    for n = 1:length(ahus)
+        fn = [path_ahu, ahus(n).name];
+        fn = regexprep(fn,'_cut','_all');
+        e_ahu = ahu{n};
+
+        if sum(e_ahu)==0 || sum(e_vav)==0
+            vav_sim(n) = 0;
+        else
+            vav_sim(n) = dot(e_ahu, e_vav)/(norm(e_ahu)*norm(e_vav));
+        end
+    end
+    
+    true = find(ahu_list==ahuid);
+    if ismember( true, find(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) )<length(ahus);
+        ctr = ctr + 1;
+    end
+end
+
+fprintf('acc on GloME event corr is %.4f\n', ctr/num);
