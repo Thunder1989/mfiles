@@ -3,7 +3,7 @@
 %511 has only less than 3 days of data
 % clear
 % clc
-path = '/Users/hdz1989/Downloads/code/Data/KETI_oneweek/';
+path = 'D:\TraneData\KETI_oneweek\';
 folder = dir(path);
 first = 1377241200; %8/23/2013 0:0:0am PST
 last = 1378018799; %8/31/2013 11:59:59pm PST
