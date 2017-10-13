@@ -14,7 +14,7 @@ sensorName = {};
 gt_type = [];
 gt_room = [];
 ctr = 0; % # of streams
-for n = 4:roomNum
+for n = 3:roomNum
     path1 = strcat(path, folder(n).name,'/');   %path to each room
     file = dir(strcat(path1,'*.csv'));
     sensorNum = size(file,1);
@@ -164,10 +164,16 @@ for b = 0.08:0.02:0.08
     for i = 1:sensorNum
         cur = data(i,:); %1 by T
         src = data;
-        src(i,:) = zeros(size(cur)); %d-1 by T
+        cur_type = gt_type(i);
+        mask_idx = find(gt_type==cur_type);
+        for j = 1:length(mask_idx)
+            id = mask_idx(j);
+            src(id,:) = zeros(size(cur)); %extra constraint - set each of the same type to zero
+        end
+        src(i,:) = zeros(size(cur)); %set self to 0
         % 0.015~0.03 for max-min normalization, 0.06 gives no zero rows
         % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all resonable
-        coef = lasso(src', cur', 'Lambda', b); %N-1 by 1
+        coef = lasso(src', cur', 'Lambda', b); %d by 1
         W(i,:) = coef;
         residual(i,:) = abs(cur' - src' * coef);
     %     fprintf('lasso computing itr %d done!\n', i);
