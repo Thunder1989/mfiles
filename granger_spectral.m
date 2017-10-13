@@ -158,23 +158,18 @@ clc
 W = zeros(sensorNum, sensorNum);
 fprintf('lasso computing started...\n');
 res = [];
+residual = zeros(size(data));
 for b = 0.08:0.02:0.08
 %     b = 0.14;
     for i = 1:sensorNum
-        cur = data(i,:); %1 by d
+        cur = data(i,:); %1 by T
         src = data;
-        src(i,:) = []; %N-1 by d
+        src(i,:) = zeros(size(cur)); %d-1 by T
         % 0.015~0.03 for max-min normalization, 0.06 gives no zero rows
         % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all resonable
         coef = lasso(src', cur', 'Lambda', b); %N-1 by 1
-        idx = 1;
-        for j=1:length(coef)
-            if(idx==i) 
-                idx = idx+1;
-            end
-            W(i,idx) = coef(j);
-            idx = idx+1;
-        end
+        W(i,:) = coef;
+        residual(i,:) = abs(cur' - src' * coef);
     %     fprintf('lasso computing itr %d done!\n', i);
     end
 % fprintf('lasso computing done!\n');

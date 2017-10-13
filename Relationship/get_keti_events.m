@@ -21,15 +21,20 @@ function [event, canny] = get_keti_events()
             cur_data = cur_data(1:30:end); %downsample
 %             plot(cur_data)
 %             pause
-            [res,Z,M] = gibbs_sgf(cur_data,1,0);
-%             event{(n-3)*4+ctr} = get_KF_residue(cur_data');
-            event{(n-3)*4+ctr} = mean(Z(:,21:3:end),2);
+            try
+                [res,Z,M] = gibbs_sgf(cur_data,1,0);
+            catch
+                warning('GloME exception on %s ...\n',rooms(n).name);
+                Z = zeros(size(cur_data,1),11);
+            end
+%             event{(n-3)*4+ctr} = get_KF_residual(cur_data');
+            event{(n-3)*4+ctr} = mean(Z(:,11:3:end),2);
             canny{(n-3)*4+ctr} = get_canny_edges(cur_data');
             ctr = ctr + 1;
         end
     end
 
-function res = get_KF_residue(X) %X is a row input vector
+function res = get_KF_residual(X) %X is a row input vector
     N = 5*2; %Kalman Filter lookback window size
     M = 8; %EWMA window size
     kf = StandardKalmanFilter(X,M,N,'EWMA'); 
