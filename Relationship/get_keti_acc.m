@@ -3,6 +3,20 @@ function get_keti_acc(event, canny)
     path = 'D:\TraneData\KETI_oneweek\';
     rooms = dir(path);
 
+    event = cellfun(@transpose,event,'UniformOutput',false);
+    max_len = max(cell2mat(cellfun(@length,event,'UniformOutput',false)));
+    empty_idx = find( cellfun(@isempty,event) );
+    for i = 1:length(empty_idx)
+        event{empty_idx(i)} = zeros(1,max_len);
+    end
+    event{175} = zeros(1,max_len);
+    min_len = min(cell2mat(cellfun(@length,event,'UniformOutput',false)));
+    event = cellfun(@(x) x(1:min_len),event,'UniformOutput',false);
+    event = cellfun(@(x) resample(x, min_len, length(x)),event,'UniformOutput',false);
+    event = tfidf(cell2mat(event));
+    event = mat2cell(event,ones(1,size(event,1)),[size(event,2)]);
+%     disp(event);
+    
     ref = 2;
     ctr = 0;
     ctr1 = 0;

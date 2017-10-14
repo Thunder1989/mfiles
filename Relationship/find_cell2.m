@@ -1,4 +1,5 @@
 function [x,y] = find_cell2(mat)
+    %find the pair of points with a 'stand-out' score
     metric = zeros(size(mat));
     curv = zeros(size(mat));
     for i=1:size(mat,1)

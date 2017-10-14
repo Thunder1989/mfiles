@@ -1,4 +1,5 @@
 function [x,y] = find_cell(mat)
+    %find the pair of points with a heuristic
     metric = zeros(size(mat));
     curv = zeros(size(mat));
     for i=1:size(mat,1)
