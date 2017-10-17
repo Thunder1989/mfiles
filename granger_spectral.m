@@ -164,12 +164,12 @@ for b = 0.08:0.02:0.08
     for i = 1:sensorNum
         cur = data(i,:); %1 by T
         src = data;
-        cur_type = gt_type(i);
-        mask_idx = find(gt_type==cur_type);
-        for j = 1:length(mask_idx)
-            id = mask_idx(j);
-            src(id,:) = zeros(size(cur)); %extra constraint - set each of the same type to zero
-        end
+%         cur_type = gt_type(i);
+%         mask_idx = find(gt_type==cur_type);
+%         for j = 1:length(mask_idx)
+%             id = mask_idx(j);
+%             src(id,:) = zeros(size(cur)); %extra constraint - set each of the same type to zero
+%         end
         src(i,:) = zeros(size(cur)); %set self to 0
         % 0.015~0.03 for max-min normalization, 0.06 gives no zero rows
         % 0.14~0.2 for u-std normalization, 0.14 gives no zero rows - 0.02-0.14 all resonable
