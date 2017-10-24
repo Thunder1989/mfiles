@@ -1,4 +1,7 @@
-function acc = correlation_onepair(bid, week)
+% function acc = correlation_onepair(bid, week)
+
+bid = 320;
+week = 4;
 
 path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu_common\');
 path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
@@ -16,7 +19,7 @@ num = length(ahus);
 for n = 1:num
 %     fprintf('processing %s\n',ahus(n).name)
     fn = [path_ahu, ahus(n).name];
-    fn = regexprep(fn,'_cut','_all');
+%     fn = regexprep(fn,'_cut','_all');
     str = regexp(ahus(n).name,'[0-9]+','match');
     cur_ahuid = str2double(str(1));
     data_ahu = csvread(fn,1);
@@ -70,18 +73,18 @@ k = 3;
 topk = 0;
 w = 0.5;
 for m = 1:num
-%     fprintf('processed %s\n',vavs(m).name);
+    fprintf('processed %s\n',vavs(m).name);
 
     fn = [path_vav, vavs(m).name];
-    fn = regexprep(fn,'_cut','_all');
+%     fn = regexprep(fn,'_cut','_all');
     str = regexp(vavs(m).name,'[0-9]+','match');
     ahuid = str2double(str(1));
     data_vav = csvread(fn,1);
-    if bid ~= 320
+%     if bid ~= 320
         data_vav = data_vav(1:4*24*T,1); %for longer period, 3rd col is airflow
-    else
-        data_vav = data_vav(1:4*24*T,3); %for longer period, 3rd col is airflow
-    end
+%     else
+%         data_vav = data_vav(1:4*24*T,3); %for longer period, 3rd col is airflow
+%     end
 %     delta = [0 diff(data_vav)'];
     e_vav = edge(repmat(data_vav',3,1), 1.25); %th = 1.25 for 320 596, 0.6 for 642
     e_vav = e_vav(1,:);
@@ -125,7 +128,7 @@ for m = 1:num
 
     for n = 1:length(ahus)
         fn = [path_ahu, ahus(n).name];
-        fn = regexprep(fn,'_cut','_all');
+%         fn = regexprep(fn,'_cut','_all');
         data_ahu = csvread(fn,1);
         data_ahu = data_ahu(1:4*24*T,end);
         e_ahu = ahu_event{n};
@@ -185,8 +188,7 @@ for m = 1:num
 %             fprintf('paused\n')
 %             pause
 %         end
-%         
-    end   
+    end
 end
 
 fprintf('----output of %d weeks data on 10%d-----------------\n',week, bid);
@@ -199,48 +201,121 @@ tmp = sum(wrong_test(:,end-1)) + size(correct,1);
 fprintf('acc on combined is %.4f\n', tmp/num);
 acc = tmp/num;
 
-fid = fopen('C:\Users\dzhon\Dropbox\acc_vs_time.txt','a');
-fprintf(fid, 'acc on %d with %d weeks data - %0.4f\n', bid, week, acc);
-fclose(fid);
+% fid = fopen('C:\Users\dzhon\Dropbox\acc_vs_time.txt','a');
+% fprintf(fid, 'acc on %d with %d weeks data - %0.4f\n', bid, week, acc);
+% fclose(fid);
 
-% fea_ahu = tfidf(cell2mat(ahu_kf_res));
-% fea_vav = tfidf(cell2mat(vav_kf_res));
-% 
-% ctr2 = 0;
-% topk = 0;
-% for m = 1:num
-%     fn = [path_vav, vavs(m).name];
-%     ahuid = str2double(vavs(m).name(5));
-%     f1 = fea_vav(m,:);
-% 
-%     vav_sim = zeros(length(ahus),1);
-%     for n = 1:length(ahus)
-%         fn = [path_ahu, ahus(n).name];
-%         f2 = fea_ahu(n,:);
-% 
-%         cur_sim = dot(f1, f2)/(norm(f1)*norm(f2)); 
-%         vav_sim(n) = abs(cur_sim);
-%     end
-%     
-%     if ahu_list(vav_sim==max(vav_sim)) == ahuid
-%         ctr2 = ctr2 + 1;
-%     else
-%         [v,i] = sort(vav_sim,'descend');
-%         if ~isempty( find(ahu_list(i(1:k))==ahuid,1) )
-%             topk = topk + 1;
-%         end      
-%     end    
-% end
-% 
-% fprintf('acc on tfidf cossim is %.4f\n', ctr2/num);
-% fprintf('top_%d rate for miss is %.4f\n', k, topk/num);
+%% tfidf acc alone
 
-function cdf(correct, wrong)
-    figure
-    hold on
-    grid on
-    [p, v] = ecdf(correct(:,end));
-    plot(v,p,'r', 'LineWidth', 2)
-    [p, v] = ecdf(wrong(:,end));
-    plot(v,p,'k', 'LineWidth', 2)
-    legend('correct\_sim','wrong\_sim', 'Location','southeast', 'FontSize', 12);
+ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
+vav_ = cellfun(@transpose,vav,'UniformOutput',false);
+
+ahu_res_ = ceil(10*cell2mat(ahu_kf_res));
+vav_res_ = ceil(10*cell2mat(vav_kf_res));
+
+fea_ahu = tfidf(ahu_res_);
+fea_vav = tfidf(vav_res_);
+
+% fea = tfidf([cell2mat(ahu_kf_res); cell2mat(vav_kf_res)]);
+% fea_ahu = fea(1:size(ahu_kf_res,1), :);
+% fea_vav = fea(size(ahu_kf_res,1)+1:end, :);
+
+ctr2 = 0;
+num = size(fea_vav,1);
+for m = 1:num
+    fn = [path_vav, vavs(m).name];
+    ahuid = str2double(vavs(m).name(5));
+    f1 = fea_vav(m,:);
+
+    vav_sim = zeros(length(ahus),1);
+    for n = 1:length(ahus)
+        fn = [path_ahu, ahus(n).name];
+        f2 = fea_ahu(n,:);
+
+        cur_sim = dot(f1, f2)/(norm(f1)*norm(f2)); 
+        vav_sim(n) = abs(cur_sim);
+    end
+    
+    if ismember( ahuid, ahu_list(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) ) < length(vav_sim)
+        ctr2 = ctr2 + 1;
+    end
+end
+
+fprintf('acc on tfidf cossim is %.4f\n', ctr2/num);
+
+% function cdf(correct, wrong)
+%     figure
+%     hold on
+%     grid on
+%     [p, v] = ecdf(correct(:,end));
+%     plot(v,p,'r', 'LineWidth', 2)
+%     [p, v] = ecdf(wrong(:,end));
+%     plot(v,p,'k', 'LineWidth', 2)
+%     legend('correct\_sim','wrong\_sim', 'Location','southeast', 'FontSize', 12);
+
+%% tfidf combined with cc
+
+ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
+vav_ = cellfun(@transpose,vav,'UniformOutput',false);
+
+ahu_res_ = ceil(cell2mat(ahu_kf_res));
+vav_res_ = ceil(cell2mat(vav_kf_res));
+
+fea_ahu = tfidf(ahu_res_);
+fea_vav = tfidf(vav_res_);
+assert (isempty(find(fea_vav<0, 1)))
+
+% fea = tfidf([ahu_res_; vav_res_]);
+% fea_ahu = fea(1:size(ahu_res_,1), :);
+% fea_vav = fea(size(ahu_res_,1)+1:end, :);
+
+ctr1 = 0;
+correct = [];
+wrong_test = [];
+for m = 1:num
+    fn = [path_vav, vavs(m).name];
+    str = regexp(vavs(m).name,'[0-9]+','match');
+    ahuid = str2double(str(1));
+    e_vav = vav_event{m};
+    diff1 = fea_vav(m,:);
+%     diff1 = vav_kf_res{m};
+
+    vav_sim = zeros(length(ahus),1);
+    vav_score = zeros(length(ahus),1);
+    
+    for n = 1:length(ahus)
+        fn = [path_ahu, ahus(n).name];
+        data_ahu = csvread(fn,1);
+        e_ahu = ahu_event{n};
+        diff2 = fea_ahu(n,:);
+%         diff2 = ahu_kf_res{n};
+
+        if sum(e_ahu)==0 || sum(e_vav)==0
+            vav_sim(n) = 0;
+        else
+            cur_sim = dot(e_ahu, e_vav)/(norm(e_ahu)*norm(e_vav));
+            vav_sim(n) = cur_sim;
+        end
+
+        if sum(diff1)==0 || sum(diff2)==0
+            vav_score(n) = 0;
+        else
+            vav_score(n) = dot(diff1,diff2) / ( norm(diff1) * norm(diff2) );
+        end
+    end
+    
+    if ahu_list(vav_sim==max(vav_sim)) == ahuid
+        ctr1 = ctr1 + 1;
+        correct = [correct; vav_sim', m, find(ahu_list==ahuid), find(vav_sim==max(vav_sim),1)];
+    else
+        true = find(ahu_list==ahuid);
+        predicted = find(vav_score==max(vav_score),1);
+
+        max_in_all = ismember( true, find(vav_score==max(vav_score)) ) & length( find(vav_score==max(vav_score)) ) < length(ahus);     
+        wrong_test = [wrong_test; vav_score', true, predicted, find(vav_score==max(vav_score),1), max_in_all, max_in_topk];
+    end
+end
+
+tmp = sum(wrong_test(:,end-1)) + size(correct,1);
+fprintf('acc on cannys is %.4f\n', ctr1/num);
+fprintf('acc on combined is %.4f\n', tmp/num);

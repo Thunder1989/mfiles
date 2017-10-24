@@ -1,4 +1,4 @@
-function [event_ahu, event_vav] = get_events_all(bid)
+function [event_ahu, event_vav, Q_ahu, R_ahu, Q_vav, R_vav] = get_events_all(bid)
     close all
     clc
    
@@ -11,17 +11,23 @@ function [event_ahu, event_vav] = get_events_all(bid)
 
     num = length(ahus);
     event_ahu = cell(num,1);
+    Q_ahu = cell(num,1);
+    R_ahu = cell(num,1);
     num = length(vavs);
     event_vav = cell(num,1);
+    Q_vav = cell(num,1);
+    R_vav = cell(num,1);
     for n = 1:length(ahus);
         fprintf('processing %s ...\n',ahus(n).name)
         fn = [path_ahu, ahus(n).name];
         cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
         cur_ahu = cur_ahu(1:4*24*T,:);
         cur_ahu = cur_ahu(:,end); %ahu last col, vav 1st col
-        [res,Z,M] = gibbs_sgf(cur_ahu,1,0);
+        [res,Z,M,Q,R] = gibbs_sgf(cur_ahu,1,0);
         
         event_ahu{n} = mean(Z(:,21:3:end),2);
+        Q_ahu{n} = Q;
+        R_ahu{n} = R;
     end
     
     for n = 1:length(vavs);
@@ -30,7 +36,9 @@ function [event_ahu, event_vav] = get_events_all(bid)
         cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
         cur_ahu = cur_ahu(1:4*24*T,:);
         cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
-        [res,Z,M] = gibbs_sgf(cur_ahu,1,0);
+        [res,Z,M,Q,R] = gibbs_sgf(cur_ahu,1,0);
         
         event_vav{n} = mean(Z(:,21:3:end),2);
+        Q_vav{n} = Q;
+        R_vav{n} = R;
     end

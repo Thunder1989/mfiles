@@ -1,4 +1,4 @@
-function [Y,Z,M] = gibbs_sgf(data, F_switch, debug)
+function [Y,Z,M,Q,R] = gibbs_sgf(data, F_switch, debug)
 
     %------initialization------
     X1 = data(:)';
