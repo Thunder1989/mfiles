@@ -1,4 +1,6 @@
-function para_distribution(bid, Q_vav)
+function para_distribution(bid)
+    file = sprintf('%d_output',bid);
+    load(file)
     % get Q R distribution
     path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu_common\');
     path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
