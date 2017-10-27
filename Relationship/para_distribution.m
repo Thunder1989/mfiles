@@ -11,39 +11,51 @@ function para_distribution(bid)
         str = regexp(vavs(n).name,'[0-9]+','match');
         ahu_id(n) = str2double(str(1));
     end
-    unique(ahu_id)
 
     cur = ahu_id(1);
     Q_0 = cell(4,1);
     Q_1 = cell(4,1);
     R_0 = cell(4,1);
     R_1 = cell(4,1);
-    for n = 2:length(vavs)
+    for n = 1:length(vavs)
         if ahu_id(n) ~= cur
             cur = ahu_id(n);
-            plot_all_dim(Q_0);
-            plot_all_dim(Q_1);
+            plot_all_dim(R_0);
+            plot_all_dim(R_1);
             pause
             
             Q_0 = cell(4,1);
             Q_1 = cell(4,1);
-            continue;
-        else
-            cur_M = Q_vav{n};
-            idx = get_max(cur_M);
-            
-            %Q for event
-            v = cur_M{idx};
-            for dim = 1:4
-                Q_1{dim} = [Q_1{dim} v(dim)];
-            end
-            %Q for non-event
-            v = cur_M{3-idx};
-            for dim = 1:4
-                Q_0{dim} = [Q_0{dim} v(dim)];
-            end
+            R_0 = cell(4,1);
+            R_1 = cell(4,1);
         end
+        cur_M = Q_vav{n};
+        idx = get_max(cur_M);
+
+        %Q for event
+        v = cur_M{idx};
+        for dim = 1:4
+            Q_1{dim} = [Q_1{dim} v(dim)];
+        end
+        %Q for non-event
+        v = cur_M{3-idx};
+        for dim = 1:4
+            Q_0{dim} = [Q_0{dim} v(dim)];
+        end
+        
+        %R for event
+        v = cur_M{idx};
+        for dim = 1:4
+            R_1{dim} = [R_1{dim} v(dim)];
+        end
+        %R for non-event
+        v = cur_M{3-idx};
+        for dim = 1:4
+            R_0{dim} = [R_0{dim} v(dim)];
+        end        
     end
+        plot_all_dim(R_0);
+        plot_all_dim(R_1);
 
 function idx = get_max(M)
     M_max = max(M{:});
@@ -54,11 +66,12 @@ function idx = get_max(M)
     else
         idx = 2;
     end
-    
+
 function plot_all_dim(M)
     figure
     hold on
     for i=1:4
         subplot(2,2,i)
+%         size(M{i})
         hist(M{i},20)
     end

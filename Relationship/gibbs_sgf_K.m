@@ -1,4 +1,4 @@
-function [Y,Z,M,Q,R] = gibbs_sgf(data, F_switch, debug)
+function [Y,Z,M,Q,R] = gibbs_sgf(data, K, F_switch, debug)
 
     %------initialization------
     X1 = data(:)';
@@ -8,16 +8,16 @@ function [Y,Z,M,Q,R] = gibbs_sgf(data, F_switch, debug)
     X = [X1(:) X2(:)];
     Y = [Y1(:) Y2(:)];
     rnd = rand(size(X,1),1);
-    Z = zeros(size(X,1),1);
-    Z(rnd>0.5) = 1;
+    Z = randi(K, size(X,1),1 ); %initize z seq
 	
-    M = [.9, .5; .1, .5]; %[p00, p10; p01, p11]
-    F_ = {[1 1; 0 1], [1 0; 0 1]}; %1-steady, 2-transition
+    M = rand(3);
+    M = bsxfun(@rdivide, M, sum(M)); %transition matrix
+    F_ = {[1 1; 0 1], [1 0; 0 1]}; %1-steady, non1-event
     F = F_{1};
     H = [1 0; 0 1];
     
-    Q = {rand(2), rand(2)};
- 	R = {rand(2), rand(2)};
+    Q = mat2cell(rand(2*K,2),2*ones(1,K),2);
+ 	R = mat2cell(rand(2*K,2),2*ones(1,K),2);
 %     fprintf('initial Q and R:\n');
     class_mapped = map_i(R);
     for i = 0:1
