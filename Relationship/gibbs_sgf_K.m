@@ -1,4 +1,4 @@
-function [Y,Z,M,Q,R] = gibbs_sgf(data, K, F_switch, debug)
+function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
 
     %------initialization------
     X1 = data(:)';
@@ -7,51 +7,49 @@ function [Y,Z,M,Q,R] = gibbs_sgf(data, K, F_switch, debug)
     Y2 = EWMA(X2,4);
     X = [X1(:) X2(:)];
     Y = [Y1(:) Y2(:)];
-    rnd = rand(size(X,1),1);
-    Z = randi(K, size(X,1),1 ); %initize z seq
+    Z = randi(Ks, size(X,1), 1); %initize z seq
 	
     M = rand(3);
     M = bsxfun(@rdivide, M, sum(M)); %transition matrix
-    F_ = {[1 1; 0 1], [1 0; 0 1]}; %1-steady, non1-event
-    F = F_{1};
+    F_ = { [1 1; 0 1], [1 0; 0 1] }; %1-steady, ~1-event
+    F = F_{1}; %F will be estimated
     H = [1 0; 0 1];
     
-    Q = mat2cell(rand(2*K,2),2*ones(1,K),2);
- 	R = mat2cell(rand(2*K,2),2*ones(1,K),2);
-%     fprintf('initial Q and R:\n');
-    class_mapped = map_i(R);
-    for i = 0:1
+    Q = mat2cell(rand(2*Ks,2), 2*ones(1,Ks), 2);
+ 	R = mat2cell(rand(2*Ks,2), 2*ones(1,Ks), 2);
+    steady_cls = get_non_event_i(R);
+    for i = 1:Ks
         if F_switch
-            F = F_{class_mapped(i)};
+            if i==steady_cls
+                F = F_{1};
+            else
+                F = F_{2};
+            end
         end
-        [Q{i+1}, R{i+1}] = get_Q_R(i,X,Y,Z,F,H);
+        [Q{i}, R{i}] = get_Q_R(i,X,Y,Z,F,H);
     end
-   
+
 	%------EM------
     K = 10; % iters for EM
     N = 200; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
-%         fprintf('--------------iter# %d--------------\n',k);
+        fprintf('--------------iter# %d--------------\n',k);
 
         %---E step---
-        class_mapped = map_i(R);
+        steady_cls = get_non_event_i(R);
         
         %sample Z
         Z_sample = repmat(Z,1,N);
         for t = 2:length(Z)-1 %todo: shuffle the order
-            p_tmp = zeros(2,1);
+            p_tmp = zeros(Ks,1);
             for i = 1:length(p_tmp)
-                p_tmp(i) = M( i, Z(t-1)+1 ) * M( Z(t+1)+1, i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i});% * mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
+                p_tmp(i) = M( i, Z(t-1) ) * M( Z(t+1), i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i});% * mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
             end
             p_tmp = p_tmp/sum(p_tmp);
 
             for n = 1:N
-                if p_tmp(1) > rand(1) %todo: change to find min on cumsum
-                    Z_sample(t,n) = 0;
-                else
-                    Z_sample(t,n) = 1;
-                end
+                Z_sample(t,n) = find(cumsum(p_tmp) >= rand(1), 1);
             end
         end
 
@@ -60,28 +58,31 @@ function [Y,Z,M,Q,R] = gibbs_sgf(data, K, F_switch, debug)
         p_tmp = zeros(N,1);
         for t = 2:size(Y,1)-1
 
-            Q_prev = Q{Z(t-1)+1};
-            Q_next = Q{Z(t+1)+1};
-        	Q_cur = Q{Z(t)+1};
-        	R_cur = R{Z(t)+1};
-%             celldisp(R)
-%             Z(t)
+%             Q_prev = Q{Z(t-1)+1};
+            Q_next = Q{Z(t+1)};
+        	Q_cur = Q{Z(t)};
+        	R_cur = R{Z(t)};
+
             if F_switch
-                F = F_{class_mapped(Z(t))};
+                if i==steady_cls
+                    F = F_{1};
+                else
+                    F = F_{2};
+                end
             end
             
-            if class_mapped(Z(t-1))==1 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==1 ...
-                || class_mapped(Z(t-1))==2 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==2 
+            if Z(t-1)==steady_cls && Z(t)~=steady_cls && Z(t+1)==steady_cls ...
+                || Z(t-1)~=steady_cls && Z(t)==steady_cls && Z(t+1)~=steady_cls
                 %010 or 101: p(x_t|y_t)
                 Sigma_e = H^-1*R_cur*(H^-1)';
                 Mu_e = H^-1*X(t,:)';
-            elseif class_mapped(Z(t-1))==2 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==1 ...
-                || class_mapped(Z(t-1))==1 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==2
+            elseif Z(t-1)~=steady_cls && Z(t)~=steady_cls && Z(t+1)==steady_cls ...
+                || Z(t-1)==steady_cls && Z(t)==steady_cls && Z(t+1)~=steady_cls
                 %110 or 001: p(x_t|y_t) p(y_t|y_t-1)
                 Sigma_e = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
                 Mu_e = Sigma_e * Q_cur^-1 * (F*Y(t-1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
-            elseif class_mapped(Z(t-1))==2 && class_mapped(Z(t))==1 && class_mapped(Z(t+1))==1 ...
-                || class_mapped(Z(t-1))==1 && class_mapped(Z(t))==2 && class_mapped(Z(t+1))==2
+            elseif Z(t-1)~=steady_cls && Z(t)==steady_cls && Z(t+1)==steady_cls ...
+                || Z(t-1)==steady_cls && Z(t)~=steady_cls && Z(t+1)~=steady_cls
                 %100 or 011: p(x_t|y_t) p(y_t|y_t+1)
                 Sigma_e = ( (F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
                 Mu_e = Sigma_e * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
@@ -92,11 +93,13 @@ function [Y,Z,M,Q,R] = gibbs_sgf(data, K, F_switch, debug)
             Mu_ = Sigma_* Q_cur^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
             Sigma = ( Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
             Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
-
+            
             if Z(t)~=Z(t-1) || Z(t)~=Z(t+1)
-                for n = 1:N
-                    Y_sample(t,1,n) = normrnd(Mu(1), Sigma(1,1));
-                    Y_sample(t,2,n) = normrnd(Mu_e(2), Sigma_e(2,2));
+                if Z(t)==steady_cls || Z(t-1)==steady_cls || Z(t+1)==steady_cls
+                    for n = 1:N
+                        Y_sample(t,1,n) = normrnd(Mu(1), Sigma(1,1));
+                        Y_sample(t,2,n) = normrnd(Mu_e(2), Sigma_e(2,2));
+                    end
                 end
             else
                 for n = 1:N
@@ -118,13 +121,17 @@ function [Y,Z,M,Q,R] = gibbs_sgf(data, K, F_switch, debug)
         %---M step---
         Y = mean(Y_sample,3);
         Z = mode(Z_sample(:,end-10:end),2);
-        M = get_M(Z_sample);
+        M = get_M(Z_sample, Ks);
 	
-        for i = 0:1
+        for i = 1:Ks
             if F_switch
-                F = F_{class_mapped(i)};
+                if i==steady_cls
+                    F = F_{1};
+                else
+                    F = F_{2};
+                end
             end
-            [Q{i+1}, R{i+1}] = get_Q_R(i,X,Y,Z_sample,F,H); %check: use Y_sample?
+            [Q{i}, R{i}] = get_Q_R(i,X,Y,Z_sample,F,H); %check: use Y_sample?
         end
         
         if debug==1
@@ -135,21 +142,15 @@ function [Y,Z,M,Q,R] = gibbs_sgf(data, K, F_switch, debug)
             stem(Z*50,'r--','LineWidth',1,'Marker','None')
             pause(0.1)
         end
-        
+
     end
     
 %     Z = mean(Z_sample(:,end-20:end),2);
     Z = Z_sample;
 
-%     figure
-%     plot(p_data,'k','LineWidth',2)
-
-%     M
-%     celldisp(Q)
-%     celldisp(R)
-    
 
 function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)
+    
     Q = zeros(2);
     R = zeros(2);
     
@@ -176,28 +177,24 @@ function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)
     R = R/ctr;
 
 
-function M = get_M(Z_sample)
-    M = zeros(2);
+function M = get_M(Z_sample, K) %K-class transition matrix
+    M = zeros(K);
     for n = 1:size(Z_sample,2)
         Z = Z_sample(:,n);
-        n01 = length(find(Z(1:end-1)==0 & Z(2:end)==1)); n0=length(find(Z(1:end-1)==0));
-        n10 = length(find(Z(1:end-1)==1 & Z(2:end)==0)); n1=length(find(Z(1:end-1)==1));
-        % z0 = betarnd(n01+prior.z01, n0-n01+prior.z00);
-        % z1 = betarnd(n10+prior.z10, n1-n10+prior.z11);
-        z0 = n01/n0;
-        z1 = n10/n1;
-    	M = M + [1-z0, z1; z0, 1-z1];
+        for i = 1:K
+            for j = 1:K
+                n_ij = length(find(Z(1:end-1)==i & Z(2:end)==j)); 
+                M(i,j) = M(i,j) + n_ij / (length(Z)-1);
+            end
+        end 
     end
     M = M / size(Z_sample,2);
     
     
 function class_mapped = map_i(R)
 
-%     fprintf('re-mapping z-0/1 to 1-steady/2-transition...\n')
-%     celldisp(R)
-
     k = [0 1];
-    R_max = max(R{:});
+    R_max = min(R{:});
     R_max = R_max(end);
     
     if R{1}(end) == R_max %larger r for event
@@ -208,16 +205,13 @@ function class_mapped = map_i(R)
 
     class_mapped = containers.Map(k,v);
 
-    
-function idx = get_event_i(R)
 
-    R_max = max(R{:});
-    R_max = R_max(end);
-    
-    if R{1}(end) == R_max %larger r for event
-        idx = 0;
-    else
-        idx = 1;
-    end
+function idx = get_non_event_i(R)
 
-    
+    R_min = min(cell2mat(cellfun(@(x) x(end), R, 'UniformOutput', false))); 
+   
+    for i=1:length(R)
+        if R{i}(end) == R_min 
+            idx = i;
+        end
+    end    
