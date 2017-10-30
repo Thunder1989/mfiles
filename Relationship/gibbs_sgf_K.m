@@ -30,7 +30,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
     end
 
 	%------EM------
-    K = 10; % iters for EM
+    K = 15; % iters for EM
     N = 200; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
@@ -121,7 +121,8 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
         %---M step---
         Y = mean(Y_sample,3);
         Z = mode(Z_sample(:,end-10:end),2);
-        M = get_M(Z_sample, Ks);
+        M = get_M(Z_sample, Ks)
+        sum(M)
 	
         for i = 1:Ks
             if F_switch
@@ -177,18 +178,21 @@ function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)
     R = R/ctr;
 
 
-function M = get_M(Z_sample, K) %K-class transition matrix
+function M = get_M(Z_sample,K) %K-class transition matrix, each col sums to 1
     M = zeros(K);
+    N = zeros(K,1);
     for n = 1:size(Z_sample,2)
         Z = Z_sample(:,n);
         for i = 1:K
+            N(i) = N(i) + length( find(Z(1:end-1)==i) );
             for j = 1:K
-                n_ij = length(find(Z(1:end-1)==i & Z(2:end)==j)); 
-                M(i,j) = M(i,j) + n_ij / (length(Z)-1);
+                N_ij = length(find(Z(1:end-1)==i & Z(2:end)==j)); 
+                M(i,j) = M(i,j) + N_ij;
             end
         end 
     end
-    M = M / size(Z_sample,2);
+    assert (sum(N) == numel(Z_sample) - size(Z_sample,2));
+    M = bsxfun(@rdivide,M,N)';
     
     
 function class_mapped = map_i(R)

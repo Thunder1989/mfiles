@@ -160,7 +160,7 @@ for n = 3:3
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,end); %ahu last col, vav 1st col
-    [res, Z, M] = gibbs_sgf_K(cur_ahu,3,1,0);
+    [res, Z, M] = gibbs_sgf_K(cur_ahu, 3, 1, 0);
     
     figure
     hold on
