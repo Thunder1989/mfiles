@@ -121,8 +121,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
         %---M step---
         Y = mean(Y_sample,3);
         Z = mode(Z_sample(:,end-10:end),2);
-        M = get_M(Z_sample, Ks)
-        sum(M)
+        M = get_M(Z_sample, Ks);
 	
         for i = 1:Ks
             if F_switch
