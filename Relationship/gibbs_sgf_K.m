@@ -7,20 +7,20 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
     Y2 = EWMA(X2,4);
     X = [X1(:) X2(:)];
     Y = [Y1(:) Y2(:)];
-    Z = randi(Ks, size(X,1), 1); %initize z seq
+    Z = randi(Ks, size(X,1), 1); %initialize z seq
 	
     M = rand(3);
     M = bsxfun(@rdivide, M, sum(M)); %transition matrix
-    F_ = { [1 1; 0 1], [1 0; 0 1] }; %1-steady, ~1-event
+    F_ = { [1 1; 0 1], [1 0; 0 1] }; %1-steady, 2-event
     F = F_{1}; %F will be estimated
     H = [1 0; 0 1];
     
     Q = mat2cell(rand(2*Ks,2), 2*ones(1,Ks), 2);
  	R = mat2cell(rand(2*Ks,2), 2*ones(1,Ks), 2);
-    steady_cls = get_non_event_i(R);
+    non_event_idx = get_non_event_i(R);
     for i = 1:Ks
         if F_switch
-            if i==steady_cls
+            if i==non_event_idx
                 F = F_{1};
             else
                 F = F_{2};
@@ -37,7 +37,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
         fprintf('--------------iter# %d--------------\n',k);
 
         %---E step---
-        steady_cls = get_non_event_i(R);
+        non_event_idx = get_non_event_i(R);
         
         %sample Z
         Z_sample = repmat(Z,1,N);
@@ -64,25 +64,25 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
         	R_cur = R{Z(t)};
 
             if F_switch
-                if i==steady_cls
+                if i==non_event_idx
                     F = F_{1};
                 else
                     F = F_{2};
                 end
             end
             
-            if Z(t-1)==steady_cls && Z(t)~=steady_cls && Z(t+1)==steady_cls ...
-                || Z(t-1)~=steady_cls && Z(t)==steady_cls && Z(t+1)~=steady_cls
+            if Z(t-1)==non_event_idx && Z(t)~=non_event_idx && Z(t+1)==non_event_idx ...
+                || Z(t-1)~=non_event_idx && Z(t)==non_event_idx && Z(t+1)~=non_event_idx
                 %010 or 101: p(x_t|y_t)
                 Sigma_e = H^-1*R_cur*(H^-1)';
                 Mu_e = H^-1*X(t,:)';
-            elseif Z(t-1)~=steady_cls && Z(t)~=steady_cls && Z(t+1)==steady_cls ...
-                || Z(t-1)==steady_cls && Z(t)==steady_cls && Z(t+1)~=steady_cls
+            elseif Z(t-1)~=non_event_idx && Z(t)~=non_event_idx && Z(t+1)==non_event_idx ...
+                || Z(t-1)==non_event_idx && Z(t)==non_event_idx && Z(t+1)~=non_event_idx
                 %110 or 001: p(x_t|y_t) p(y_t|y_t-1)
                 Sigma_e = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
                 Mu_e = Sigma_e * Q_cur^-1 * (F*Y(t-1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
-            elseif Z(t-1)~=steady_cls && Z(t)==steady_cls && Z(t+1)==steady_cls ...
-                || Z(t-1)==steady_cls && Z(t)~=steady_cls && Z(t+1)~=steady_cls
+            elseif Z(t-1)~=non_event_idx && Z(t)==non_event_idx && Z(t+1)==non_event_idx ...
+                || Z(t-1)==non_event_idx && Z(t)~=non_event_idx && Z(t+1)~=non_event_idx
                 %100 or 011: p(x_t|y_t) p(y_t|y_t+1)
                 Sigma_e = ( (F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
                 Mu_e = Sigma_e * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
@@ -95,7 +95,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
             Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
             
             if Z(t)~=Z(t-1) || Z(t)~=Z(t+1)
-                if Z(t)==steady_cls || Z(t-1)==steady_cls || Z(t+1)==steady_cls
+                if Z(t)==non_event_idx || Z(t-1)==non_event_idx || Z(t+1)==non_event_idx
                     for n = 1:N
                         Y_sample(t,1,n) = normrnd(Mu(1), Sigma(1,1));
                         Y_sample(t,2,n) = normrnd(Mu_e(2), Sigma_e(2,2));
@@ -125,7 +125,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
 	
         for i = 1:Ks
             if F_switch
-                if i==steady_cls
+                if i==non_event_idx
                     F = F_{1};
                 else
                     F = F_{2};
