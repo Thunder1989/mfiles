@@ -33,9 +33,9 @@ function [event_ahu, event_vav, Q_ahu, R_ahu, Q_vav, R_vav] = get_events_all(bid
     for n = 1:length(vavs);
         fprintf('processed %s ...\n',vavs(n).name);
         fn = [path_vav, vavs(n).name];
-        cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
-        cur_ahu = cur_ahu(1:4*24*T,:);
-        cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
+        cur_vav = csvread(fn,1); %skip the 1st row, which is the headers
+        cur_vav = cur_vav(1:4*24*T,:);
+        cur_vav = cur_vav(:,1); %ahu last col, vav 1st col
         [res,Z,M,Q,R] = gibbs_sgf(cur_ahu,1,0);
         
         event_vav{n} = mean(Z(:,21:3:end),2);
