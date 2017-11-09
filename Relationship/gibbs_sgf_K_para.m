@@ -57,8 +57,8 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
         p_tmp = zeros(N,1);
 
         F = mat2cell( repmat([1 1; 0 1],size(Y,1),1), 2*ones(1,size(Y,1)), 2);
-        if F_switch %TBD: know how to fix this
-            for t=1:size(Y,1)-1
+        if F_switch
+            for t=1:size(Y,1)
                 if Z(t)==non_event_idx
                     F{t} = F_{1};
                 else
