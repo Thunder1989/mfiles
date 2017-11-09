@@ -1,4 +1,4 @@
-function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
+function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
 
     %------initialization------
     X1 = data(:)';
@@ -49,27 +49,31 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
             p_tmp = p_tmp/sum(p_tmp);
 
             for n = 1:N
-                Z_sample(t,n) = find(cumsum(p_tmp) >= rand(1), 1);
+                Z_sample(t,n) = find( cumsum(p_tmp)>=rand(1), 1 );
             end
         end
-        
-		%sample Y
-        Y_sample = repmat(Y,1,1,N);
-        p_tmp = zeros(N,1);
-        for t = 2:size(Y,1)-1
 
+		%sample Y
+        p_tmp = zeros(N,1);
+
+        F = mat2cell( repmat([1 1; 0 1],size(Y,1),1), 2*ones(1,size(Y,1)), 2);
+        if F_switch %TBD: know how to fix this
+            for t=1:size(Y,1)-1
+                if Z(t)==non_event_idx
+                    F{t} = F_{1};
+                else
+                    F{t} = F_{2};
+                end
+            end
+        end
+
+        Y_even = repmat(Y,1,1,N);
+        parfor t = 1:N/2-1
+            
 %             Q_prev = Q{Z(t-1)+1};
             Q_next = Q{Z(t+1)};
         	Q_cur = Q{Z(t)};
         	R_cur = R{Z(t)};
-
-            if F_switch
-                if Z(t)==non_event_idx
-                    F = F_{1};
-                else
-                    F = F_{2};
-                end
-            end
             
             if Z(t-1)==non_event_idx && Z(t)~=non_event_idx && Z(t+1)==non_event_idx ...
                 || Z(t-1)~=non_event_idx && Z(t)==non_event_idx && Z(t+1)~=non_event_idx
@@ -80,46 +84,44 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
                 || Z(t-1)==non_event_idx && Z(t)==non_event_idx && Z(t+1)~=non_event_idx
                 %110 or 001: p(x_t|y_t) p(y_t|y_t-1)
                 Sigma_e = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
-                Mu_e = Sigma_e * Q_cur^-1 * (F*Y(t-1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
+                Mu_e = Sigma_e * Q_cur^-1 * (F{t}*Y(t-1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
             elseif Z(t-1)~=non_event_idx && Z(t)==non_event_idx && Z(t+1)==non_event_idx ...
                 || Z(t-1)==non_event_idx && Z(t)~=non_event_idx && Z(t+1)~=non_event_idx
                 %100 or 011: p(x_t|y_t) p(y_t|y_t+1)
-                Sigma_e = ( (F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
-                Mu_e = Sigma_e * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
+                Sigma_e = ( (F{t}^-1*Q_next*(F{t}^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
+                Mu_e = Sigma_e * (F{t}^-1*Q_next*(F{t}^-1)')^-1 * (F{t}^-1*Y(t+1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
             end
             
             %normal case - product of 3 gaussians, always used for sampling position 
-            Sigma_ = ( Q_cur^-1 + (F^-1*Q_next*(F^-1)')^-1 )^-1;
-            Mu_ = Sigma_* Q_cur^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
+            Sigma_ = ( Q_cur^-1 + (F{t}^-1*Q_next*(F{t}^-1)')^-1 )^-1;
+            Mu_ = Sigma_* Q_cur^-1 * (F{t}*Y(t-1,:)') + Sigma_ * (F{t}^-1*Q_next*(F{t}^-1)')^-1 * (F{t}^-1*Y(t+1,:)');
             Sigma = ( Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
             Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
             
             if Z(t)~=Z(t-1) || Z(t)~=Z(t+1)
                 if Z(t)==non_event_idx || Z(t-1)==non_event_idx || Z(t+1)==non_event_idx
                     for n = 1:N
-                        Y_sample(t,1,n) = normrnd(Mu(1), Sigma(1,1));
-                        Y_sample(t,2,n) = normrnd(Mu_e(2), Sigma_e(2,2));
+                        Y_even(t,:,n) = [ normrnd(Mu(1), Sigma(1,1)), normrnd(Mu_e(2), Sigma_e(2,2)) ];
                     end
                 end
             else
                 for n = 1:N
-                    Y_sample(t,:,n) = mvnrnd(Mu, Sigma);
+                    Y_even(t,:,n) = mvnrnd(Mu, Sigma);
                 end
             end
             
             %data likelihood
-            p = 0;
-            % for t=2:size(Y,1)-1 
-            %     p = p + log( mvnpdf(Y_sample(t,:,n), Y_sample(t-1,:,n)*F', Q) )...
-            %         + log( mvnpdf(X(t,:), Y_sample(t,:,n)*H', R) );
-            % end
-            p_tmp(n) = p;
+%             p = 0;
+%             for t=2:size(Y,1)-1 
+%                 p = p + log( mvnpdf(Y_sample(t,:,n), Y_sample(t-1,:,n)*F', Q) )...
+%                     + log( mvnpdf(X(t,:), Y_sample(t,:,n)*H', R) );
+%             end
+%             p_tmp(t) = p;
         end
-        
+
         p_data(k) = mean(p_tmp);
         
         %---M step---
-        
         Y = mean(Y_sample,3);
         Z = mode(Z_sample(:,end-10:end),2);
         M = get_M(Z_sample, Ks);
@@ -143,7 +145,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
             stem(Z*50,'r--','LineWidth',1,'Marker','None')
             pause(0.1)
         end
-        
+
     end
     
 %     Z = mean(Z_sample(:,end-20:end),2);

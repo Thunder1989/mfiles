@@ -11,6 +11,7 @@ function event_eval(debug)
 
     num = length(files);
     step = 3000;
+    parpool('local');
     for n = 2:2
 
         fn = [path, files(n).name];
