@@ -4,7 +4,8 @@ function event_eval(debug)
     clear
     clc
 
-    path = 'D:\HouseA\';
+    %path = 'D:\HouseA\';
+    path = '../../HouseA/';
     files = dir(strcat(path, '*.log'));
     colors = containers.Map( 1:3, {[54/255,160/255,204/255], [211/255,142/255,194/255], [.8 .8 .455]} );
 
