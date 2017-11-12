@@ -16,7 +16,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
     H = [1 0; 0 1];
     
     Q = mat2cell(rand(2*Ks,2), 2*ones(1,Ks), 2);
- 	R = mat2cell(rand(2*Ks,2), 2*ones(1,Ks), 2);
+    R = mat2cell(rand(2*Ks,2), 2*ones(1,Ks), 2);
     non_event_idx = get_non_event_i(R);
     for i = 1:Ks
         if F_switch
@@ -28,8 +28,8 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
         end
         [Q{i}, R{i}] = get_Q_R(i,X,Y,Z,F,H);
     end
-
-	%------EM------
+    
+    %------EM------
     K = 15; % iters for EM
     N = 200; % samples per iter
     p_data = zeros(K,1);
@@ -52,10 +52,10 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
                 Z_sample(t,n) = find( cumsum(p_tmp)>=rand(1), 1 );
             end
         end
-
-		%sample Y
+        
+        %sample Y
 %         p_tmp = zeros(N,1); %data likelihood
-        F = mat2cell( repmat([1 1; 0 1],size(Y,1),1), 2*ones(1,size(Y,1)), 2);
+        F = mat2cell( repmat([1 1; 0 1],size(Y,1),1), 2*ones(1,size(Y,1)), 2 );
         if F_switch
             for t=1:size(Y,1)
                 if Z(t)==non_event_idx
@@ -83,9 +83,9 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
         Y_next = zeros(num_even,2);
         Y_next(1:size(Y_odd)-1,:) = Y_odd(2:end,:);
         Z_prev = Z_odd(1:num_even);
-        Z_next = zeros(num_even,1);
+        Z_next = randi(Ks,num_even,1);
         Z_next(1:size(Z_odd)-1) = Z_odd(2:end);
-        Y_even_sample = sample_Y(N,F_even,H,Q,R,X_even,Y_prev,Y_next,Y_even,Z_prev,Z_next,Z_even);
+        Y_even_sample = sample_Y(non_event_idx,N,F_even,H,Q,R,X_even,Y_prev,Y_next,Y_even,Z_prev,Z_next,Z_even);
 
         % 2 4 6 
         %1 3 5 7
@@ -94,13 +94,13 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
         Y_prev(2:num_odd,:) = Y_even(1:num_odd-1,:);
         Y_next = zeros(num_odd,2);
         Y_next(1:size(Y_even),:) = Y_even;
-        Z_prev = zeros(num_odd,1);
+        Z_prev = randi(Ks,num_odd,1);
         Z_prev(2:end) = Z_even(1:num_odd-1);
-        Z_next = zeros(num_odd,1);
+        Z_next = randi(Ks,num_odd,1);
         Z_next(1:size(Z_even)) = Z_even; 
-        Y_odd_sample = sample_Y(N,F_odd,H,Q,R,X_odd,Y_prev,Y_next,Y_odd,Z_prev,Z_next,Z_odd);
+        Y_odd_sample = sample_Y(non_event_idx,N,F_odd,H,Q,R,X_odd,Y_prev,Y_next,Y_odd,Z_prev,Z_next,Z_odd);
         
-        Y_sample = zeros(size(Y), N);
+        Y_sample = zeros([size(Y), N]);
         Y_sample(1:2:end,:,:) = Y_odd_sample;
         Y_sample(2:2:end,:,:) = Y_even_sample;
        
@@ -136,13 +136,13 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
 %     Z = mean(Z_sample(:,end-20:end),2);
     Z = Z_sample;
 
-function Y_ = sample_Y(N,F,H,Q,R,X,Y_prev,Y_next,Y,Z_prev,Z_next,Z)
-    %FQRXYZ will be sliced, i.e, either evens or odds
+function Y_ = sample_Y(non_event_idx,N,F,H,Q,R,X,Y_prev,Y_next,Y,Z_prev,Z_next,Z)
+    %FXYZ will be sliced, i.e, either evens or odds
     
-    Y_ = repmat(Y,1,1,N);
+    Y_ = zeros([size(Y),N]);
 
     parfor t = 1:size(Y,1)
-
+        
         Q_next = Q{Z_next(t)};
         Q_cur = Q{Z(t)};
         R_cur = R{Z(t)};
@@ -169,20 +169,15 @@ function Y_ = sample_Y(N,F,H,Q,R,X,Y_prev,Y_next,Y,Z_prev,Z_next,Z)
 
         %normal case - product of 3 gaussians, always used for sampling position 
         Sigma_ = ( Q_cur^-1 + (F{t}^-1*Q_next*(F{t}^-1)')^-1 )^-1;
-        Mu_ = Sigma_* Q_cur^-1 * (F{t}*Y(t-1,:)') + Sigma_ * (F{t}^-1*Q_next*(F{t}^-1)')^-1 * (F{t}^-1*Y(t+1,:)');
+        Mu_ = Sigma_* Q_cur^-1 * (F{t}*Y_prev(t,:)') + Sigma_ * (F{t}^-1*Q_next*(F{t}^-1)')^-1 * (F{t}^-1*Y_next(t,:)');
         Sigma = ( Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
         Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
 
-        if Z(t)~=Z_prev(t) || Z(t)~=Z_next(t)
-            if Z(t)==non_event_idx || Z_prev(t)==non_event_idx || Z_next(t)==non_event_idx
-                for n = 1:N
-                    Y_(t,:,n) = [ normrnd(Mu(1), Sigma(1,1)), normrnd(Mu_e(2), Sigma_e(2,2)) ];
-                end
-            end
+        if ( Z(t)~=Z_prev(t) || Z(t)~=Z_next(t) ) && ...
+            ( Z(t)==non_event_idx || Z_prev(t)==non_event_idx || Z_next(t)==non_event_idx )
+            Y_(t,:,:) = [ normrnd(Mu(1), Sigma(1,1), N, 1), normrnd(Mu_e(2), Sigma_e(2,2), N, 1) ]';
         else
-            for n = 1:N
-                Y_(t,:,n) = mvnrnd(Mu, Sigma);
-            end
+            Y_(t,:,:) = mvnrnd(Mu, Sigma, N)';
         end
 
         %data likelihood
