@@ -30,8 +30,8 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
     end
     
     %------EM------
-    K = 20; % iters for EM
-    N = 200; % samples per iter
+    K = 10; % iters for EM
+    N = 100; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
 %         fprintf('--------------iter# %d--------------\n',k);
@@ -41,15 +41,22 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
         
         %sample Z
         Z_sample = repmat(Z,1,N);
-        for t = 2:length(Z)-1 %todo: shuffle the order
-            p_tmp = zeros(Ks,1);
-            for i = 1:length(p_tmp)
-                p_tmp(i) = M( i, Z(t-1) ) * M( Z(t+1), i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i});% * mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
-            end
-            p_tmp = p_tmp/sum(p_tmp);
+        p_tmp = zeros(Ks,1);
+        for n = 2:N
+            for t = 2:length(Z)-1
+                if F_switch
+                    if Z_sample(t,n-1)==non_event_idx
+                        F = F_{1};
+                    else
+                        F = F_{2};
+                    end
+                end
 
-            for n = 1:N
-                Z_sample(t,n) = find( cumsum(p_tmp)>=rand(1), 1 );
+                for i = 1:length(p_tmp)
+                    p_tmp(i) = M( i, Z_sample(t-1,n) ) * M( Z_sample(t+1,n-1), i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i}); %* mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
+                end
+                p_tmp = p_tmp/sum(p_tmp);
+                Z_sample(t,n) = find(cumsum(p_tmp) >= rand(1), 1); 
             end
         end
         

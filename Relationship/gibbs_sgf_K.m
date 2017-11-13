@@ -28,14 +28,14 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
         end
         [Q{i}, R{i}] = get_Q_R(i,X,Y,Z,F,H);
     end
-
-	%------EM------
+    
+    %------EM------
     K = 10; % iters for EM
     N = 100; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
         fprintf('--------------iter# %d--------------\n',k);
-
+        
         %---E step---
         non_event_idx = get_non_event_i(R);
         
@@ -44,6 +44,14 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
         p_tmp = zeros(Ks,1);
         for n = 2:N
             for t = 2:length(Z)-1
+                if F_switch
+                    if Z_sample(t,n-1)==non_event_idx
+                        F = F_{1};
+                    else
+                        F = F_{2};
+                    end
+                end
+
                 for i = 1:length(p_tmp)
                     p_tmp(i) = M( i, Z_sample(t-1,n) ) * M( Z_sample(t+1,n-1), i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i}); %* mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
                 end
@@ -52,13 +60,13 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
             end
         end
         
-		%sample Y
+        %sample Y
         Y_sample = repmat(Y,1,1,N);
 %         p_tmp = zeros(N,1); %for data likelihood
         for n = 2:N
             for t = 2:size(Y,1)-1 %todo: shuffle the order
 
-    %             Q_prev = Q{Z(t-1)+1};
+%                 Q_prev = Q{Z(t-1)+1};
                 Q_next = Q{Z(t+1)}; %Question: use latest Z?
                 Q_cur = Q{Z(t)};
                 R_cur = R{Z(t)};
@@ -115,8 +123,8 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
         
         %---M step---
         
-        Y = mean(Y_sample,3);
-        Z = mode(Z_sample(:,end-10:end),2);
+        Y = mean(Y_sample, 3);
+        Z = mode(Z_sample(:,end-10:end), 2);
         M = get_M(Z_sample, Ks);
 	
         for i = 1:Ks

@@ -161,7 +161,7 @@ for n = 2:2
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
     tic
-    [res, Z, M] = gibbs_sgf_K(cur_ahu, 2, 0, 0);
+    [res, Z, M] = gibbs_sgf_K(cur_ahu, 2, 1, 0);
 %     [res, Z, M] = gibbs_sgf_K_para(cur_ahu, 2, 1, 0);
     toc
 
@@ -185,7 +185,7 @@ end
 Z_ = Z;
 
 %% self-defined colors
-Z = mean(Z_(:,11:2:end),2); %seems mean is better than mode
+Z = mean(Z_(:,11:2:end),2);
 figure
 hold on
 colors = containers.Map(1:4,{[54/255,160/255,204/255],[211/255,142/255,194/255],[80/255,180/255,110/255],[.8 .8 .455]});
