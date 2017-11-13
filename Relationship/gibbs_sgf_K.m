@@ -9,7 +9,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
     Y = [Y1(:) Y2(:)];
     Z = randi(Ks, size(X,1), 1); %initialize z seq
 	
-    M = rand(3);
+    M = rand(Ks);
     M = bsxfun(@rdivide, M, sum(M)); %transition matrix
     F_ = { [1 1; 0 1], [1 0; 0 1] }; %1-steady, 2-event
     F = F_{1}; %F will be estimated

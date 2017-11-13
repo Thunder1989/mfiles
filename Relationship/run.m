@@ -161,8 +161,8 @@ for n = 3:3
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,end); %ahu last col, vav 1st col
     tic
-%     [res, Z, M] = gibbs_sgf_K(cur_ahu, 2, 1, 0);
-    [res, Z, M] = gibbs_sgf_K_para(cur_ahu, 2, 1, 0);
+    [res, Z, M] = gibbs_sgf_K(cur_ahu, 4, 1, 0);
+%     [res, Z, M] = gibbs_sgf_K_para(cur_ahu, 2, 1, 0);
     toc
 
     figure
@@ -247,11 +247,11 @@ plot(1:length(res), res(:,2),'r')
 %     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
 legend('event','original','filtered','vel')
 
-%%
+%% self-defined colors
 Z = mode(Z_(:,11:3:end),2);
 figure
 hold on
-colors = containers.Map(1:3,{[54/255,160/255,204/255],[211/255,142/255,194/255],[.8 .8 .455]});
+colors = containers.Map(1:4,{[54/255,160/255,204/255],[211/255,142/255,194/255],[80/255,180/255,110/255],[.8 .8 .455]});
 y_lim = max(cur_ahu);
 for i=1:length(Z)
     stem(i, y_lim, 'Marker','None', 'LineWidth', 4, 'Color', colors(Z(i)) );

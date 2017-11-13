@@ -30,7 +30,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
     end
     
     %------EM------
-    K = 15; % iters for EM
+    K = 20; % iters for EM
     N = 200; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
