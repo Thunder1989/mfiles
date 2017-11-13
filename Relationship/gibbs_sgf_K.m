@@ -30,92 +30,87 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
     end
 
 	%------EM------
-    K = 15; % iters for EM
-    N = 200; % samples per iter
+    K = 10; % iters for EM
+    N = 100; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
-%         fprintf('--------------iter# %d--------------\n',k);
+        fprintf('--------------iter# %d--------------\n',k);
 
         %---E step---
         non_event_idx = get_non_event_i(R);
         
         %sample Z
         Z_sample = repmat(Z,1,N);
-        for t = 2:length(Z)-1 %todo: shuffle the order
-            p_tmp = zeros(Ks,1);
-            for i = 1:length(p_tmp)
-                p_tmp(i) = M( i, Z(t-1) ) * M( Z(t+1), i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i});% * mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
-            end
-            p_tmp = p_tmp/sum(p_tmp);
-
-            for n = 1:N
+        p_tmp = zeros(Ks,1);
+        for n = 2:N
+            for t = 2:length(Z)-1
+                for i = 1:length(p_tmp)
+                    p_tmp(i) = M( i, Z_sample(t-1,n) ) * M( Z_sample(t+1,n-1), i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i}); %* mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
+                end
+                p_tmp = p_tmp/sum(p_tmp);
                 Z_sample(t,n) = find(cumsum(p_tmp) >= rand(1), 1);
             end
         end
         
 		%sample Y
         Y_sample = repmat(Y,1,1,N);
-        p_tmp = zeros(N,1);
-        for t = 2:size(Y,1)-1
+%         p_tmp = zeros(N,1); %for data likelihood
+        for n = 2:N
+            for t = 2:size(Y,1)-1 %todo: shuffle the order
 
-%             Q_prev = Q{Z(t-1)+1};
-            Q_next = Q{Z(t+1)};
-        	Q_cur = Q{Z(t)};
-        	R_cur = R{Z(t)};
+    %             Q_prev = Q{Z(t-1)+1};
+                Q_next = Q{Z(t+1)}; %Question: use latest Z?
+                Q_cur = Q{Z(t)};
+                R_cur = R{Z(t)};
 
-            if F_switch
-                if Z(t)==non_event_idx
-                    F = F_{1};
-                else
-                    F = F_{2};
-                end
-            end
-            
-            if Z(t-1)==non_event_idx && Z(t)~=non_event_idx && Z(t+1)==non_event_idx ...
-                || Z(t-1)~=non_event_idx && Z(t)==non_event_idx && Z(t+1)~=non_event_idx
-                %010 or 101: p(x_t|y_t)
-                Sigma_e = H^-1*R_cur*(H^-1)';
-                Mu_e = H^-1*X(t,:)';
-            elseif Z(t-1)~=non_event_idx && Z(t)~=non_event_idx && Z(t+1)==non_event_idx ...
-                || Z(t-1)==non_event_idx && Z(t)==non_event_idx && Z(t+1)~=non_event_idx
-                %110 or 001: p(x_t|y_t) p(y_t|y_t-1)
-                Sigma_e = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
-                Mu_e = Sigma_e * Q_cur^-1 * (F*Y(t-1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
-            elseif Z(t-1)~=non_event_idx && Z(t)==non_event_idx && Z(t+1)==non_event_idx ...
-                || Z(t-1)==non_event_idx && Z(t)~=non_event_idx && Z(t+1)~=non_event_idx
-                %100 or 011: p(x_t|y_t) p(y_t|y_t+1)
-                Sigma_e = ( (F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
-                Mu_e = Sigma_e * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
-            end
-            
-            %normal case - product of 3 gaussians, always used for sampling position 
-            Sigma_ = ( Q_cur^-1 + (F^-1*Q_next*(F^-1)')^-1 )^-1;
-            Mu_ = Sigma_* Q_cur^-1 * (F*Y(t-1,:)') + Sigma_ * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y(t+1,:)');
-            Sigma = ( Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
-            Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
-            
-            if Z(t)~=Z(t-1) || Z(t)~=Z(t+1)
-                if Z(t)==non_event_idx || Z(t-1)==non_event_idx || Z(t+1)==non_event_idx
-                    for n = 1:N
-                        Y_sample(t,1,n) = normrnd(Mu(1), Sigma(1,1));
-                        Y_sample(t,2,n) = normrnd(Mu_e(2), Sigma_e(2,2));
+                if F_switch
+                    if Z(t)==non_event_idx
+                        F = F_{1};
+                    else
+                        F = F_{2};
                     end
                 end
-            else
-                for n = 1:N
+
+                if Z(t-1)==non_event_idx && Z(t)~=non_event_idx && Z(t+1)==non_event_idx ...
+                    || Z(t-1)~=non_event_idx && Z(t)==non_event_idx && Z(t+1)~=non_event_idx
+                    %010 or 101: p(x_t|y_t)
+                    Sigma_e = H^-1*R_cur*(H^-1)';
+                    Mu_e = H^-1*X(t,:)';
+                elseif Z(t-1)~=non_event_idx && Z(t)~=non_event_idx && Z(t+1)==non_event_idx ...
+                    || Z(t-1)==non_event_idx && Z(t)==non_event_idx && Z(t+1)~=non_event_idx
+                    %110 or 001: p(x_t|y_t) p(y_t|y_t-1)
+                    Sigma_e = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
+                    Mu_e = Sigma_e * Q_cur^-1 * (F*Y_sample(t-1,:,n)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
+                elseif Z(t-1)~=non_event_idx && Z(t)==non_event_idx && Z(t+1)==non_event_idx ...
+                    || Z(t-1)==non_event_idx && Z(t)~=non_event_idx && Z(t+1)~=non_event_idx
+                    %100 or 011: p(x_t|y_t) p(y_t|y_t+1)
+                    Sigma_e = ( (F^-1*Q_next*(F^-1)')^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
+                    Mu_e = Sigma_e * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y_sample(t+1,:,n-1)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');    
+                end
+
+                %normal case - product of 3 gaussians, always used for sampling position 
+                Sigma_ = ( Q_cur^-1 + (F^-1*Q_next*(F^-1)')^-1 )^-1;
+                Mu_ = Sigma_* Q_cur^-1 * (F*Y_sample(t-1,:,n)') + Sigma_ * (F^-1*Q_next*(F^-1)')^-1 * (F^-1*Y_sample(t+1,:,n-1)');
+                Sigma = ( Sigma_^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
+                Mu = Sigma * Sigma_^-1 * Mu_ + Sigma * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
+
+                if ( Z(t)~=Z(t-1) || Z(t)~=Z(t+1) ) && ...
+                ( Z(t)==non_event_idx || Z(t-1)==non_event_idx || Z(t+1)==non_event_idx )
+                    Y_sample(t,1,n) = normrnd(Mu(1), Sigma(1,1));
+                    Y_sample(t,2,n) = normrnd(Mu_e(2), Sigma_e(2,2));
+                else
                     Y_sample(t,:,n) = mvnrnd(Mu, Sigma);
                 end
+
+                %data likelihood
+%                 p = 0;
+%                 for t=2:size(Y,1)-1 
+%                     p = p + log( mvnpdf(Y_sample(t,:,n), Y_sample(t-1,:,n)*F', Q) )...
+%                         + log( mvnpdf(X(t,:), Y_sample(t,:,n)*H', R) );
+%                 end
+%                 p_tmp(n) = p;
             end
-            
-            %data likelihood
-            p = 0;
-            % for t=2:size(Y,1)-1 
-            %     p = p + log( mvnpdf(Y_sample(t,:,n), Y_sample(t-1,:,n)*F', Q) )...
-            %         + log( mvnpdf(X(t,:), Y_sample(t,:,n)*H', R) );
-            % end
-            p_tmp(n) = p;
         end
-        
         p_data(k) = mean(p_tmp);
         
         %---M step---

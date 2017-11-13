@@ -1,4 +1,6 @@
 function [Y,Z,M,Q,R] = gibbs_sgf(data, F_switch, debug)
+%deprecated as of 11/13/17, and will not update 
+%use the K-state version and set K=2---
 
     %------initialization------
     X1 = data(:)';

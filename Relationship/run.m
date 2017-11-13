@@ -155,32 +155,46 @@ event_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
 % figure
-for n = 3:3
-    fn = [path_ahu, ahus(n).name];
+for n = 2:2
+    fn = [path_vav, vavs(n).name];
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
-    cur_ahu = cur_ahu(:,end); %ahu last col, vav 1st col
+    cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
     tic
-    [res, Z, M] = gibbs_sgf_K(cur_ahu, 4, 1, 0);
+    [res, Z, M] = gibbs_sgf_K(cur_ahu, 2, 0, 0);
 %     [res, Z, M] = gibbs_sgf_K_para(cur_ahu, 2, 1, 0);
     toc
 
-    figure
-    hold on
-%     yyaxis left
-    %events in shade
-    stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
-    %original data
-    plot(1:length(res), cur_ahu,'k-')
-    %filtered data
-    plot(1:length(res), res(:,1),'g-')
-%     yyaxis right
-    %velocity
-    plot(1:length(res), res(:,2),'r')
-%     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
-    legend('event','original','filtered','vel')
+%     figure
+%     hold on
+% %     yyaxis left
+%     %events in shade
+%     stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
+%     %original data
+%     plot(1:length(res), cur_ahu,'k-')
+%     %filtered data
+%     plot(1:length(res), res(:,1),'g-')
+% %     yyaxis right
+%     %velocity
+%     plot(1:length(res), res(:,2),'r')
+% %     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
+%     legend('event','original','filtered','vel')
 
 end
+
+Z_ = Z;
+
+%% self-defined colors
+Z = mean(Z_(:,11:2:end),2); %seems mean is better than mode
+figure
+hold on
+colors = containers.Map(1:4,{[54/255,160/255,204/255],[211/255,142/255,194/255],[80/255,180/255,110/255],[.8 .8 .455]});
+y_lim = max(cur_ahu);
+for i=1:length(Z)
+    stem(i, y_lim, 'Marker','None', 'LineWidth', 4, 'Color', colors(ceil(Z(i))) );
+end
+plot(cur_ahu,'k')
+ylim([min(cur_ahu)-5 max(cur_ahu)+5])
 
 %%
 vav_ep = cell(size(prob_vav));
@@ -224,9 +238,6 @@ end
 hold off
 close(writerObj); % Saves the movie.
 
-
-%% tmp
-[res,Z_,M] = gibbs_sgf(Nin(:),1,0);
 %%
 % Z = mode(Z_(:,end-10:end),2);
 Z = mode(Z_(:,11:3:end),2);
@@ -246,17 +257,6 @@ plot(1:length(res), res(:,1),'g-')
 plot(1:length(res), res(:,2),'r')
 %     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
 legend('event','original','filtered','vel')
-
-%% self-defined colors
-Z = mode(Z_(:,11:3:end),2);
-figure
-hold on
-colors = containers.Map(1:4,{[54/255,160/255,204/255],[211/255,142/255,194/255],[80/255,180/255,110/255],[.8 .8 .455]});
-y_lim = max(cur_ahu);
-for i=1:length(Z)
-    stem(i, y_lim, 'Marker','None', 'LineWidth', 4, 'Color', colors(Z(i)) );
-end
-plot(cur_ahu,'k')
 
 %% clustering
 k = 6;
