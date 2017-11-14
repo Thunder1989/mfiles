@@ -12,7 +12,7 @@ function event_eval(debug)
     num = length(files);
     step = 3000;
     parpool('local');
-    for n = 2:2
+    for n = 2:num
 
         fn = [path, files(n).name];
         type = regexp(files(n).name,'[A-Z]+','match', 'once');
@@ -34,7 +34,11 @@ function event_eval(debug)
             tmp = cellfun(@strsplit, tmp, 'UniformOutput', false);
             tmp = cell2mat( cellfun(@(x) str2double( x(end-1) ), tmp, 'UniformOutput', false) );
 
-            [~, Z, ~, ~, ~] = gibbs_sgf_K(tmp, 2, 1, 0);
+            try
+                [~, Z, ~, ~, ~] = gibbs_sgf_K(tmp, 2, 1, 0);
+            catch
+                Z = zeros(size(tmp,1),11);
+            end
             Z_ = mode(Z(:,11:3:end),2);
             fprintf(FID, '%d', Z_);
             i = i + 2999;
