@@ -185,7 +185,7 @@ end
 Z_ = Z;
 
 %% self-defined colors
-Z = mean(Z_(:,11:2:end),2);
+Z = mode(Z_(:,11:2:end),2);
 figure
 hold on
 colors = containers.Map(1:4,{[54/255,160/255,204/255],[211/255,142/255,194/255],[80/255,180/255,110/255],[.8 .8 .455]});
@@ -207,8 +207,7 @@ for m=1:9
     vav_ep{m} = cur; %prob per hour for each day
 end
 
-%% Movie Test.
- 
+%% Movie Test
 % Set up some function. 
 % Sine between -2*pi and 2*pi.
 x = (10*-pi:0.1:10*pi)'; % Note the transpose.

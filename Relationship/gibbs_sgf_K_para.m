@@ -31,7 +31,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
     
     %------EM------
     K = 10; % iters for EM
-    N = 100; % samples per iter
+    N = 100; % rounds for Gibbs
     p_data = zeros(K,1);
     for k = 1:K
 %         fprintf('--------------iter# %d--------------\n',k);
@@ -62,54 +62,58 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
         
         %sample Y
 %         p_tmp = zeros(N,1); %data likelihood
+  
         F = mat2cell( repmat([1 1; 0 1],size(Y,1),1), 2*ones(1,size(Y,1)), 2 );
         if F_switch
             for t=1:size(Y,1)
-                if Z(t)==non_event_idx
-                    F{t} = F_{1};
-                else
+                if Z(t)~=non_event_idx
                     F{t} = F_{2};
                 end
             end
         end
-        
+
         F_even = F(2:2:end);
         X_even = X(2:2:end,:);
-        Y_even = Y(2:2:end,:);
         Z_even = Z(2:2:end);
-
         F_odd  = F(1:2:end);
         X_odd  = X(1:2:end,:);
-        Y_odd  = Y(1:2:end,:);
         Z_odd  = Z(1:2:end);
         
-        %1 3 5 7
-        % 2 4 6
-        num_even = size(Y_even,1);
-        Y_prev = Y_odd(1:num_even,:);
-        Y_next = zeros(num_even,2);
-        Y_next(1:size(Y_odd)-1,:) = Y_odd(2:end,:);
-        Z_prev = Z_odd(1:num_even);
-        Z_next = randi(Ks,num_even,1);
-        Z_next(1:size(Z_odd)-1) = Z_odd(2:end);
-        Y_even_sample = sample_Y(non_event_idx,N,F_even,H,Q,R,X_even,Y_prev,Y_next,Y_even,Z_prev,Z_next,Z_even);
-
-        % 2 4 6 
-        %1 3 5 7
-        num_odd = size(Y_odd,1);
-        Y_prev = zeros(num_odd,2);
-        Y_prev(2:num_odd,:) = Y_even(1:num_odd-1,:);
-        Y_next = zeros(num_odd,2);
-        Y_next(1:size(Y_even),:) = Y_even;
-        Z_prev = randi(Ks,num_odd,1);
-        Z_prev(2:end) = Z_even(1:num_odd-1);
-        Z_next = randi(Ks,num_odd,1);
-        Z_next(1:size(Z_even)) = Z_even; 
-        Y_odd_sample = sample_Y(non_event_idx,N,F_odd,H,Q,R,X_odd,Y_prev,Y_next,Y_odd,Z_prev,Z_next,Z_odd);
+        num_even = size(X_even,1);
+        Z_even_prev = Z_odd(1:num_even);
+        Z_even_next = randi(Ks,num_even,1);
+        Z_even_next(1:size(Z_odd)-1) = Z_odd(2:end);
         
-        Y_sample = zeros([size(Y), N]);
-        Y_sample(1:2:end,:,:) = Y_odd_sample;
-        Y_sample(2:2:end,:,:) = Y_even_sample;
+        num_odd = size(X_odd,1);
+        Z_odd_prev = randi(Ks,num_odd,1);
+        Z_odd_prev(2:end) = Z_even(1:num_odd-1);
+        Z_odd_next = randi(Ks,num_odd,1);
+        Z_odd_next(1:size(Z_even)) = Z_even;
+        
+        Y_sample = repmat(Y,1,1,N);
+        for n = 2:N
+            %sample even pos
+            Y_odd  = Y_sample(1:2:end,:,n-1);
+
+            %1 3 5 7
+            % 2 4 6
+            Y_prev = Y_odd(1:num_even,:);
+            Y_next = zeros(num_even,2);
+            Y_next(1:size(Y_odd)-1,:) = Y_odd(2:end,:);
+            Y_sample(2:2:end,:,n) = sample_Y(non_event_idx,F_even,H,Q,R,X_even,Y_prev,Y_next,Z_even_prev,Z_even_next,Z_even);
+
+            %sample odd pos
+            Y_even = Y_sample(2:2:end,:,n);
+         
+            % 2 4 6 
+            %1 3 5 7
+            Y_prev = zeros(num_odd,2); %doublecheck on the extra 0s
+            Y_prev(2:num_odd,:) = Y_even(1:num_odd-1,:);
+            Y_next = zeros(num_odd,2);
+            Y_next(1:size(Y_even),:) = Y_even;
+            Y_sample(1:2:end,:,n) = sample_Y(non_event_idx,F_odd,H,Q,R,X_odd,Y_prev,Y_next,Z_odd_prev,Z_odd_next,Z_odd);
+            
+        end        
        
 %         p_data(k) = mean(p_tmp);
         
@@ -118,7 +122,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
         Z = mode(Z_sample(:,end-10:end),2);
         M = get_M(Z_sample, Ks);
 	
-        for i = 1:Ks %TBD: parallelize
+        for i = 1:Ks %TBD: parallelize?
             if F_switch
                 if i==non_event_idx
                     F = F_{1};
@@ -143,30 +147,28 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K_para(data, Ks, F_switch, debug)
 %     Z = mean(Z_sample(:,end-20:end),2);
     Z = Z_sample;
 
-function Y_ = sample_Y(non_event_idx,N,F,H,Q,R,X,Y_prev,Y_next,Y,Z_prev,Z_next,Z)
-    %FXYZ will be sliced, i.e, either evens or odds
     
-    Y_ = zeros([size(Y),N]);
-
-    parfor t = 1:size(Y,1)
+function Y_ = sample_Y(non_event_idx,F,H,Q,R,X,Y_prev,Y_next,Z_prev,Z_next,Z)
+    %FXYZ will be sliced, i.e, either evens or odds
+    parfor t = 1:size(Y_prev,1)
         
         Q_next = Q{Z_next(t)};
         Q_cur = Q{Z(t)};
         R_cur = R{Z(t)};
 
-        %transition cases
+        %transition pos
         if Z_prev(t)==non_event_idx && Z(t)~=non_event_idx && Z_next(t)==non_event_idx ...
             || Z_prev(t)~=non_event_idx && Z(t)==non_event_idx && Z_next(t)~=non_event_idx
             %010 or 101: p(x_t|y_t)
             Sigma_e = H^-1*R_cur*(H^-1)';
             Mu_e = H^-1*X(t,:)';
-            
+
         elseif Z_prev(t)~=non_event_idx && Z(t)~=non_event_idx && Z_next(t)==non_event_idx ...
             || Z_prev(t)==non_event_idx && Z(t)==non_event_idx && Z_next(t)~=non_event_idx
             %110 or 001: p(x_t|y_t) p(y_t|y_t-1)
             Sigma_e = ( Q_cur^-1 + (H^-1*R_cur*(H^-1)')^-1 )^-1;
             Mu_e = Sigma_e * Q_cur^-1 * (F{t}*Y_prev(t,:)') + Sigma_e * (H^-1*R_cur*(H^-1)')^-1 * (H^-1*X(t,:)');
-            
+
         elseif Z_prev(t)~=non_event_idx && Z(t)==non_event_idx && Z_next(t)==non_event_idx ...
             || Z_prev(t)==non_event_idx && Z(t)~=non_event_idx && Z_next(t)~=non_event_idx
             %100 or 011: p(x_t|y_t) p(y_t|y_t+1)
@@ -182,9 +184,9 @@ function Y_ = sample_Y(non_event_idx,N,F,H,Q,R,X,Y_prev,Y_next,Y,Z_prev,Z_next,Z
 
         if ( Z(t)~=Z_prev(t) || Z(t)~=Z_next(t) ) && ...
             ( Z(t)==non_event_idx || Z_prev(t)==non_event_idx || Z_next(t)==non_event_idx )
-            Y_(t,:,:) = [ normrnd(Mu(1), Sigma(1,1), N, 1), normrnd(Mu_e(2), Sigma_e(2,2), N, 1) ]';
+            Y_(t,:) = [ normrnd(Mu(1), Sigma(1,1)), normrnd(Mu_e(2), Sigma_e(2,2)) ];
         else
-            Y_(t,:,:) = mvnrnd(Mu, Sigma, N)';
+            Y_(t,:) = mvnrnd(Mu, Sigma);
         end
 
         %data likelihood
@@ -194,7 +196,8 @@ function Y_ = sample_Y(non_event_idx,N,F,H,Q,R,X,Y_prev,Y_next,Y,Z_prev,Z_next,Z
 %                     + log( mvnpdf(X(t,:), Y_sample(t,:,n)*H', R) );
 %             end
 %             p_tmp(t) = p;
-    end
+
+    end    
 
     
 function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)
@@ -239,22 +242,7 @@ function M = get_M(Z_sample,K) %K-class transition matrix, each col sums to 1
         end 
     end
     assert (sum(N) == numel(Z_sample) - size(Z_sample,2));
-    M = bsxfun(@rdivide,M,N)';
-    
-    
-function class_mapped = map_i(R)
-
-    k = [0 1];
-    R_max = min(R{:});
-    R_max = R_max(end);
-    
-    if R{1}(end) == R_max %larger r for event
-        v = [2 1];
-    else
-        v = [1 2];
-    end
-
-    class_mapped = containers.Map(k,v);
+    M = bsxfun(@rdivide,M,N)'; 
 
 
 function idx = get_non_event_i(R)
