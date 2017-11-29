@@ -184,7 +184,7 @@ end
 
 Z_ = Z;
 
-%% self-defined colors
+% self-defined colors
 Z = mode(Z_(:,11:2:end),2);
 figure
 hold on
@@ -195,6 +195,48 @@ for i=1:length(Z)
 end
 plot(cur_ahu,'k')
 ylim([min(cur_ahu)-5 max(cur_ahu)+5])
+
+%% grouped sgf
+% close all
+clc
+load('320_output.mat');
+%process covar
+Q = cellfun(@cell2mat, Q_vav, 'UniformOutput', false);
+Q = cellfun(@(x) reshape(x,1,[]), Q, 'UniformOutput', false);
+Q = cellfun(@sort, Q, 'UniformOutput', false);
+Q = cell2mat(Q);
+
+K = 10;
+c_id = kmeans(Q, K);
+% map = [c_id'; 1:length(Q_vav)]';
+% map = sortrows(map,1)';
+colors = containers.Map(1:4,{[54/255,160/255,204/255],[211/255,142/255,194/255],[80/255,180/255,110/255],[.8 .8 .455]});
+for k = 1:K
+    cur_data = [];
+    for n = 1:length(Q_vav)
+        if c_id(n) ~= k
+            continue
+        end
+        fn = [path_vav, vavs(n).name];
+        cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
+        cur_ahu = cur_ahu(1:4*24*T,:);
+        cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
+        cur_data = [cur_data; cur_ahu];
+    end
+%     fprintf('finish concatenating cluster %d...\n',k);
+    [res, Z, M] = gibbs_sgf_K(cur_data, 2, 1, 0);
+
+    Z_ = Z;
+    Z = mode(Z_(:,11:2:end),2);
+    figure
+    hold on
+    y_lim = max(cur_ahu);
+    for i=1:length(Z)
+        stem(i, y_lim, 'Marker','None', 'LineWidth', 4, 'Color', colors(ceil(Z(i))) );
+    end
+    plot(cur_ahu,'k')
+    ylim([min(cur_ahu)-5 max(cur_ahu)+5]) 
+end
 
 %%
 vav_ep = cell(size(prob_vav));
