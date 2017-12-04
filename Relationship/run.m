@@ -211,8 +211,10 @@ c_id = kmeans(Q, K);
 % map = [c_id'; 1:length(Q_vav)]';
 % map = sortrows(map,1)';
 colors = containers.Map(1:4,{[54/255,160/255,204/255],[211/255,142/255,194/255],[80/255,180/255,110/255],[.8 .8 .455]});
-for k = 1:K
+%%
+for k = 2:K
     cur_data = [];
+    ctr  = 0;
     for n = 1:length(Q_vav)
         if c_id(n) ~= k
             continue
@@ -222,20 +224,21 @@ for k = 1:K
         cur_ahu = cur_ahu(1:4*24*T,:);
         cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
         cur_data = [cur_data; cur_ahu];
+        ctr = ctr + 1;
     end
-%     fprintf('finish concatenating cluster %d...\n',k);
+    fprintf('finish concatenating %d for cluster %d...\n', ctr, k);
     [res, Z, M] = gibbs_sgf_K(cur_data, 2, 1, 0);
 
     Z_ = Z;
     Z = mode(Z_(:,11:2:end),2);
     figure
     hold on
-    y_lim = max(cur_ahu);
+    y_lim = max(cur_data);
     for i=1:length(Z)
         stem(i, y_lim, 'Marker','None', 'LineWidth', 4, 'Color', colors(ceil(Z(i))) );
     end
-    plot(cur_ahu,'k')
-    ylim([min(cur_ahu)-5 max(cur_ahu)+5]) 
+    plot(cur_data,'k')
+    ylim([min(cur_data)-5 max(cur_data)+5]) 
 end
 
 %%

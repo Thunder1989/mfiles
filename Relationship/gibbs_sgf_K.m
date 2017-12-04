@@ -34,7 +34,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_K(data, Ks, F_switch, debug)
     N = 100; % samples per iter
     p_data = zeros(K,1);
     for k = 1:K
-%         fprintf('--------------iter# %d--------------\n',k);
+        fprintf('--------------iter# %d--------------\n',k);
         
         %---E step---
         non_event_idx = get_non_event_i(R);
