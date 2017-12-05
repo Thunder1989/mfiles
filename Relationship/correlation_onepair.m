@@ -78,7 +78,7 @@ for m = 1:num
     fn = [path_vav, vavs(m).name];
 %     fn = regexprep(fn,'_cut','_all');
     str = regexp(vavs(m).name,'[0-9]+','match');
-    ahuid = str2double(str(1));
+    ahu_id = str2double(str(1));
     data_vav = csvread(fn,1);
 %     if bid ~= 320
         data_vav = data_vav(1:4*24*T,1); %for longer period, 3rd col is airflow
@@ -159,21 +159,21 @@ for m = 1:num
 
     end
     
-    if ahu_list(vav_corr==max(vav_corr)) == ahuid
+    if ahu_list(vav_corr==max(vav_corr)) == ahu_id
         ctr = ctr + 1;
     end
     
-    if ahu_list(vav_sim==max(vav_sim)) == ahuid
+    if ahu_list(vav_sim==max(vav_sim)) == ahu_id
         ctr1 = ctr1 + 1;
-        correct = [correct; vav_sim', m, find(ahu_list==ahuid), find(vav_score==max(vav_score),1)];
+        correct = [correct; vav_sim', m, find(ahu_list==ahu_id), find(vav_score==max(vav_score),1)];
     else
         [v,i] = sort(vav_sim,'descend');
         flag = 0;
-        if ~isempty( find(ahu_list(i(1:k))==ahuid,1) )
+        if ~isempty( find(ahu_list(i(1:k))==ahu_id,1) )
             topk = topk + 1;
             flag = 1;
         end
-        true = find(ahu_list==ahuid);
+        true = find(ahu_list==ahu_id);
         predicted = find(vav_sim==max(vav_sim),1);
         wrong = [wrong; vav_sim', m, true, predicted, flag, vav_sim(predicted)-vav_sim(true)];
 
@@ -184,11 +184,8 @@ for m = 1:num
         max_in_topk = vav_score(true)==max(topk_score);
         
         wrong_test = [wrong_test; vav_score', true, predicted, find(vav_score==max(vav_score),1), max_in_all, max_in_topk];
-%         if max_in_all == 1
-%             fprintf('paused\n')
-%             pause
-%         end
     end
+    
 end
 
 fprintf('----output of %d weeks data on 10%d-----------------\n',week, bid);
@@ -210,12 +207,28 @@ acc = tmp/num;
 ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
 vav_ = cellfun(@transpose,vav,'UniformOutput',false);
 
-ahu_res_ = ceil(10*cell2mat(ahu_kf_res));
-vav_res_ = ceil(10*cell2mat(vav_kf_res));
+% align with vav with corresponding ahu
+num = size(vav_,1);
+for m = 1:num
+    ahu_id = str2double(vavs(m).name(5));
+    idx = find(ahu_list == ahu_id);
+    f1 = vav_{m};
+
+    f2 = ahu_{idx};
+    f2 = f2 | [false f2(1:end-1)];
+    vav_{m} = double(f1 & f2);
+end
+
+ahu_res_ = ceil(2*cell2mat(ahu_));
+vav_res_ = ceil(2*cell2mat(vav_));
 
 fea_ahu = tfidf(ahu_res_);
 fea_vav = tfidf(vav_res_);
 
+% fea_ahu = cell2mat(ahu_);
+% fea_vav = cell2mat(vav_);
+
+% merge ahu and vav together for tf-idf
 % fea = tfidf([cell2mat(ahu_kf_res); cell2mat(vav_kf_res)]);
 % fea_ahu = fea(1:size(ahu_kf_res,1), :);
 % fea_vav = fea(size(ahu_kf_res,1)+1:end, :);
@@ -224,7 +237,7 @@ ctr2 = 0;
 num = size(fea_vav,1);
 for m = 1:num
     fn = [path_vav, vavs(m).name];
-    ahuid = str2double(vavs(m).name(5));
+    ahu_id = str2double(vavs(m).name(5));
     f1 = fea_vav(m,:);
 
     vav_sim = zeros(length(ahus),1);
@@ -236,22 +249,15 @@ for m = 1:num
         vav_sim(n) = abs(cur_sim);
     end
     
-    if ismember( ahuid, ahu_list(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) ) < length(vav_sim)
+    if ismember( ahu_id, ahu_list(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) ) < length(vav_sim)
         ctr2 = ctr2 + 1;
+    else
+        %TBD: some debugging
     end
+        
 end
 
 fprintf('acc on tfidf cossim is %.4f\n', ctr2/num);
-
-% function cdf(correct, wrong)
-%     figure
-%     hold on
-%     grid on
-%     [p, v] = ecdf(correct(:,end));
-%     plot(v,p,'r', 'LineWidth', 2)
-%     [p, v] = ecdf(wrong(:,end));
-%     plot(v,p,'k', 'LineWidth', 2)
-%     legend('correct\_sim','wrong\_sim', 'Location','southeast', 'FontSize', 12);
 
 %% tfidf combined with cc
 
@@ -275,7 +281,7 @@ wrong_test = [];
 for m = 1:num
     fn = [path_vav, vavs(m).name];
     str = regexp(vavs(m).name,'[0-9]+','match');
-    ahuid = str2double(str(1));
+    ahu_id = str2double(str(1));
     e_vav = vav_event{m};
     diff1 = fea_vav(m,:);
 %     diff1 = vav_kf_res{m};
@@ -304,11 +310,11 @@ for m = 1:num
         end
     end
     
-    if ahu_list(vav_sim==max(vav_sim)) == ahuid
+    if ahu_list(vav_sim==max(vav_sim)) == ahu_id
         ctr1 = ctr1 + 1;
-        correct = [correct; vav_sim', m, find(ahu_list==ahuid), find(vav_sim==max(vav_sim),1)];
+        correct = [correct; vav_sim', m, find(ahu_list==ahu_id), find(vav_sim==max(vav_sim),1)];
     else
-        true = find(ahu_list==ahuid);
+        true = find(ahu_list==ahu_id);
         predicted = find(vav_score==max(vav_score),1);
 
         max_in_all = ismember( true, find(vav_score==max(vav_score)) ) & length( find(vav_score==max(vav_score)) ) < length(ahus);     
