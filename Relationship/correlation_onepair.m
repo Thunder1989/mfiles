@@ -202,65 +202,8 @@ acc = tmp/num;
 % fprintf(fid, 'acc on %d with %d weeks data - %0.4f\n', bid, week, acc);
 % fclose(fid);
 
-%% tfidf acc alone
-
-ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
-vav_ = cellfun(@transpose,vav,'UniformOutput',false);
-
-% align with vav with corresponding ahu
-num = size(vav_,1);
-for m = 1:num
-    ahu_id = str2double(vavs(m).name(5));
-    idx = find(ahu_list == ahu_id);
-    f1 = vav_{m};
-
-    f2 = ahu_{idx};
-    f2 = f2 | [false f2(1:end-1)];
-    vav_{m} = double(f1 & f2);
-end
-
-ahu_res_ = ceil(2*cell2mat(ahu_));
-vav_res_ = ceil(2*cell2mat(vav_));
-
-fea_ahu = tfidf(ahu_res_);
-fea_vav = tfidf(vav_res_);
-
-% fea_ahu = cell2mat(ahu_);
-% fea_vav = cell2mat(vav_);
-
-% merge ahu and vav together for tf-idf
-% fea = tfidf([cell2mat(ahu_kf_res); cell2mat(vav_kf_res)]);
-% fea_ahu = fea(1:size(ahu_kf_res,1), :);
-% fea_vav = fea(size(ahu_kf_res,1)+1:end, :);
-
-ctr2 = 0;
-num = size(fea_vav,1);
-for m = 1:num
-    fn = [path_vav, vavs(m).name];
-    ahu_id = str2double(vavs(m).name(5));
-    f1 = fea_vav(m,:);
-
-    vav_sim = zeros(length(ahus),1);
-    for n = 1:length(ahus)
-        fn = [path_ahu, ahus(n).name];
-        f2 = fea_ahu(n,:);
-
-        cur_sim = dot(f1, f2)/(norm(f1)*norm(f2)); 
-        vav_sim(n) = abs(cur_sim);
-    end
-    
-    if ismember( ahu_id, ahu_list(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) ) < length(vav_sim)
-        ctr2 = ctr2 + 1;
-    else
-        %TBD: some debugging
-    end
-        
-end
-
-fprintf('acc on tfidf cossim is %.4f\n', ctr2/num);
-
-%% tfidf combined with cc
-
+%% tfidf of events combined with cc
+load('320_events.mat');
 ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
 vav_ = cellfun(@transpose,vav,'UniformOutput',false);
 

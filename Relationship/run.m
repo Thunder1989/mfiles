@@ -13,7 +13,7 @@ path_vav = './data_vav/';
 ahus = dir(strcat(path_ahu, '*.csv'));
 vavs = dir(strcat(path_vav, '*.csv'));
 
-%%
+%% ne_n0 model
 %load ahu data
 close all
 num = length(ahus);
@@ -68,7 +68,6 @@ for n = 2:2
 %     saveas(gcf,fn);    
 
 end
-
 
 %%
 %load vav data
@@ -244,12 +243,12 @@ end
 %%
 vav_ep = cell(size(prob_vav));
 for m=1:9
-    cur = prob_vav{m};
-    cur = reshape(cur,96,7,[]);
-    cur = sum(cur,3)/size(cur,3);
-    cur = permute( reshape(cur',7,[],24), [2 1 3] ); %fucking tricky
-    cur = reshape( sum(cur)/size(cur,1),7,[] )';    %even trickier
-    vav_ep{m} = cur; %prob per hour for each day
+    vav_cur = prob_vav{m};
+    vav_cur = reshape(vav_cur,96,7,[]);
+    vav_cur = sum(vav_cur,3)/size(vav_cur,3);
+    vav_cur = permute( reshape(vav_cur',7,[],24), [2 1 3] ); %fucking tricky
+    vav_cur = reshape( sum(vav_cur)/size(vav_cur,1),7,[] )';    %even trickier
+    vav_ep{m} = vav_cur; %prob per hour for each day
 end
 
 %% Movie Test
@@ -282,26 +281,6 @@ end
 hold off
 close(writerObj); % Saves the movie.
 
-%%
-% Z = mode(Z_(:,end-10:end),2);
-Z = mode(Z_(:,11:3:end),2);
-figure
-hold on
-%     yyaxis left
-%events in shade
-stem(1:length(Z), Z*max(cur_ahu), 'Marker','None', 'LineWidth', 4, 'Color', [.8 .8 .8]);
-% stem(1:length(Z), (1-Z)*max(cur_ahu), 'Marker','None', 'LineWidth',4, 'Color',[.8 .8 .8]);
-% stem(-10*event_times(:), 'LineWidth',1, 'Color',[.3 .3 .3]);
-%original data
-plot(1:length(res), cur_ahu,'k-')
-%filtered data
-plot(1:length(res), res(:,1),'g-')
-%     yyaxis right
-%velocity
-plot(1:length(res), res(:,2),'r')
-%     area(1:length(Z), Z*max(cur_ahu), 'EdgeColor', 'none', 'FaceColor', [.8 .8 .8]);
-legend('event','original','filtered','vel')
-
 %% clustering
 k = 6;
 data = cellfun(@transpose, vav, 'UniformOutput', false);
@@ -323,66 +302,187 @@ input = evc(:,idx(1:k));
 %                 input = evc(:,1:idx(k)); %trick: including extra negative and zero evls, slightly better
 c_idx = kmeans(input,k);
 
-%% acc
-bid = 320;
-week = 4;
-path_ahu = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\ahu_common\');
-path_vav = strcat('D:\TraneData\cut\ahu_property_file_10', num2str(bid) , '_cut\vav_common\');
-ahus = dir(strcat(path_ahu, '*.csv'));
-vavs = dir(strcat(path_vav, '*.csv'));
+%% tfidf alone acc
+load('320_events.mat');
+ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
+vav_ = cellfun(@transpose,vav,'UniformOutput',false);
 
-N = 5*2; %Kalman Filter lookback window size
-M = 8; %EWMA window size
-T = 7*week; % # of days
+% align vav with corresponding ahu
+num = size(vav_,1);
+for m = 1:num
+    str = regexp(vavs(m).name,'[0-9]+','match');
+    ahu_id = str2double(str(1));
+    idx = find(ahu_list == ahu_id);
+    f1 = vav_{m};
 
-ahu_event = cell(length(ahus),1);
-ahu_kf_res = cell(length(ahus),1);
-ahu_list = zeros(length(ahus),1);
-num = length(ahus);
-for n = 1:num
-%     fprintf('processing %s\n',ahus(n).name)
-    fn = [path_ahu, ahus(n).name];
-    fn = regexprep(fn,'_cut','_all');
-    str = regexp(ahus(n).name,'[0-9]+','match');
-    cur_ahuid = str2double(str(1));
-    ahu_list(n) = cur_ahuid;
+    f2 = ahu_{idx};
+    f2 = f2 | [false f2(1:end-1)];
+    vav_{m} = double(f1 & f2);
 end
 
-num = length(vavs);
-vav_edge = cell(num,1);
-vav_event = cell(num,1);
-vav_kf_res = cell(num,1);
-correct = [];
-wrong = [];
-wrong_test = [];
+ahu_res_ = ceil(2*cell2mat(ahu_));
+vav_res_ = ceil(2*cell2mat(vav_));
+
+fea_ahu = tfidf(ahu_res_);
+fea_vav = tfidf(vav_res_);
+
+% fea_ahu = cell2mat(ahu_);
+% fea_vav = cell2mat(vav_);
+
+% merge ahu and vav together for tf-idf
+% fea = tfidf([cell2mat(ahu_kf_res); cell2mat(vav_kf_res)]);
+% fea_ahu = fea(1:size(ahu_kf_res,1), :);
+% fea_vav = fea(size(ahu_kf_res,1)+1:end, :);
 
 ctr = 0;
+num = size(fea_vav,1);
 for m = 1:num
-%     fprintf('processed %s\n',vavs(m).name);
-
-    fn = [path_vav, vavs(m).name];
-    fn = regexprep(fn,'_cut','_all');
     str = regexp(vavs(m).name,'[0-9]+','match');
-    ahuid = str2double(str(1));
-    e_vav = vav{m};
-    
+    ahu_id = str2double(str(1));
+    f1 = fea_vav(m,:);
+
     vav_sim = zeros(length(ahus),1);
     for n = 1:length(ahus)
-        fn = [path_ahu, ahus(n).name];
-        fn = regexprep(fn,'_cut','_all');
-        e_ahu = ahu{n};
-
-        if sum(e_ahu)==0 || sum(e_vav)==0
-            vav_sim(n) = 0;
-        else
-            vav_sim(n) = dot(e_ahu, e_vav)/(norm(e_ahu)*norm(e_vav));
-        end
+        f2 = fea_ahu(n,:);
+        cur_sim = dot(f1, f2)/(norm(f1)*norm(f2)); 
+        vav_sim(n) = abs(cur_sim);
     end
     
-    true = find(ahu_list==ahuid);
-    if ismember( true, find(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) )<length(ahus);
+    if ismember( ahu_id, ahu_list(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) ) < length(vav_sim)
+        ctr = ctr + 1;
+    else
+        %TBD: some debugging
+    end
+        
+end
+
+fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
+
+%% global-local check
+clc
+load('320_events.mat');
+ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
+vav_ = cellfun(@transpose,vav,'UniformOutput',false);
+ahu_conf = cell2mat(ahu_);
+vav_conf = cell2mat(vav_);
+ahu_ = round(cell2mat(ahu_));
+vav_ = round(cell2mat(vav_));
+subset = [1,7];
+
+%take ahu1 and ahu7 data
+num = size(ahu_,1);
+ahu_tmp = [];
+ahu_list = [];
+for m = 1:num
+    str = regexp(ahus(m).name,'[0-9]+','match');
+    ahu_id = str2double(str(1));
+    if ismember(ahu_id, subset)
+        ahu_tmp = [ahu_tmp; ahu_(m,:)];
+        ahu_list = [ahu_list; ahu_id];
+    end
+end
+
+num = size(vav_,1);
+vav_sub = [];
+vav_label = [];
+vav_conf_sub = [];
+for m = 1:num
+    str = regexp(vavs(m).name,'[0-9]+','match');
+    ahu_id = str2double(str(1));
+    if ismember(ahu_id, subset)
+        vav_sub = [vav_sub; vav_(m,:)];
+        vav_conf_sub = [vav_conf_sub; vav_conf(m,:)];
+        vav_label = [vav_label; ahu_id];
+    end
+end
+
+%tfidf
+% fea_ahu = tfidf(ahu_tmp);
+% fea_vav = tfidf(vav_tmp);
+
+fea_ahu = ahu_tmp;
+fea_vav = vav_sub;
+
+%acc eval
+ctr = 0;
+num = size(vav_sub,1);
+for m = 1:num
+    ahu_id = vav_label(m);
+    f1 = fea_vav(m,:);
+
+    vav_sim = zeros(length(ahu_tmp),1);
+    for n = 1:size(ahu_tmp,1)
+        f2 = fea_ahu(n,:);
+
+        cur_sim = dot(f1, f2)/(norm(f1)*norm(f2)); 
+        vav_sim(n) = abs(cur_sim);
+    end
+    
+    if ismember( ahu_id, ahu_list(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) ) < length(vav_sim)
         ctr = ctr + 1;
     end
 end
+fprintf('acc before correction is %.4f\n', ctr/num);
 
-fprintf('acc on GloME event corr is %.4f\n', ctr/num);
+%vertical comparison - kmeans
+K = 2; %num of topics
+N = 2; %num of states for KF output
+c_idx = kmeans(vav_sub', K);
+assert(length(c_idx) == size(vav_sub,2));
+
+%horizontal comparison - MLE
+num = size(vav_sub,1);
+TH = 0.6;
+vav_sub_updated = vav_sub;
+num_updated = zeros(size(vav_sub_updated,1),1);
+assert ( isequal(vav_sub_updated, vav_sub) );
+for m = 1:num
+    ctr = 0;
+    vav_cur = vav_sub(m,:);
+    conf_cur = vav_conf_sub(m,:);
+    for k = 1:K
+        z_tmp = vav_cur(c_idx==k);
+        p_tmp = zeros(N,1);
+        for n = 1:N
+            p_tmp(n) = sum(z_tmp==n-1);
+        end
+        assert( sum(p_tmp) == length(z_tmp) );
+        p_tmp = p_tmp/sum(p_tmp); %p(z|topic=k)
+        [~, Z] = max(p_tmp);
+        
+        %updating based on p(z|topic)
+        for i = 1:length(vav_sub_updated(m,:))
+            conf_tmp = conf_cur(i);
+            if conf_tmp <= 0.6 && conf_tmp >= 1-TH && c_idx(i)==k
+                if vav_sub_updated(m,i) ~= Z-1
+                    vav_sub_updated(m,i) = Z-1;
+                    ctr = ctr + 1;
+                end
+            end
+        end
+    end
+    num_updated(m) = ctr;
+end
+assert ( isequal(num_updated, sum(vav_sub_updated~=vav_sub, 2) ) )
+
+%acc eval
+fea_vav = vav_sub_updated;
+ctr = 0;
+num = size(vav_sub,1);
+for m = 1:num
+    ahu_id = vav_label(m);
+    f1 = fea_vav(m,:);
+
+    vav_sim = zeros(length(ahu_tmp),1);
+    for n = 1:size(ahu_tmp,1)
+        f2 = fea_ahu(n,:);
+
+        cur_sim = dot(f1, f2)/(norm(f1)*norm(f2)); 
+        vav_sim(n) = abs(cur_sim);
+    end
+    
+    if ismember( ahu_id, ahu_list(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) ) < length(vav_sim)
+        ctr = ctr + 1;
+    end
+end
+fprintf('acc after correction is %.4f\n', ctr/num);
