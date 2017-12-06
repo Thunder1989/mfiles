@@ -429,10 +429,14 @@ K = 2; %num of topics
 N = 2; %num of states for KF output
 c_idx = kmeans(vav_sub', K);
 assert(length(c_idx) == size(vav_sub,2));
+%visualize
+[c,i] = sort(c_idx);
+figure
+imagesc(vav_sub(:,i))
 
 %horizontal comparison - MLE
 num = size(vav_sub,1);
-TH = 0.6;
+TH = 0.7;
 vav_sub_updated = vav_sub;
 num_updated = zeros(size(vav_sub_updated,1),1);
 assert ( isequal(vav_sub_updated, vav_sub) );
@@ -463,7 +467,8 @@ for m = 1:num
     end
     num_updated(m) = ctr;
 end
-assert ( isequal(num_updated, sum(vav_sub_updated~=vav_sub, 2) ) )
+assert( isequal(num_updated, sum(vav_sub_updated~=vav_sub, 2) ) );
+
 
 %acc eval
 fea_vav = vav_sub_updated;
