@@ -426,14 +426,19 @@ end
 fprintf('acc before correction is %.4f\n', ctr/num);
 
 %vertical comparison - kmeans
-K = 3; %num of topics
+K = 4; %num of topics
 N = 2; %num of states for KF output
-c_idx = kmeans(vav_sub', K);
+[c_idx,~,~,D] = kmeans(vav_sub', K);
 assert(length(c_idx) == size(vav_sub,2));
 %visualize
 [c,idx] = sort(c_idx);
 figure
 imagesc(vav_sub(:,idx))
+D = min(D,2);
+tmp = [c_idx, D];
+[tmp,idx_] = sortrows(tmp);
+figure
+imagesc(vav_sub(:,idx_));
 
 %horizontal comparison - MLE
 TH = 0.7;
@@ -476,7 +481,6 @@ imagesc(distribution)
 %acc eval
 fea_vav = vav_sub_updated;
 ctr = 0;
-num = size(vav_sub,1);
 for m = 1:num
     ahu_id = vav_label(m);
     f1 = fea_vav(m,:);
@@ -496,10 +500,9 @@ end
 fprintf('acc after correction is %.4f\n', ctr/num);
 
 %acc eval
-fea_vav = fea_vav(:,idx(c<3));
-fea_ahu = fea_ahu(:,idx(c<3));
+fea_vav = fea_vav(:,idx_(c<K-1));
+fea_ahu = fea_ahu(:,idx_(c<K-1));
 ctr = 0;
-num = size(vav_sub,1);
 for m = 1:num
     ahu_id = vav_label(m);
     f1 = fea_vav(m,:);
