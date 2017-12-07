@@ -359,6 +359,7 @@ end
 fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
 
 %% global-local check
+close all
 clc
 load('320_events.mat');
 ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
@@ -367,9 +368,9 @@ ahu_conf = cell2mat(ahu_);
 vav_conf = cell2mat(vav_);
 ahu_ = round(cell2mat(ahu_));
 vav_ = round(cell2mat(vav_));
-subset = [1,7];
 
 %take ahu1 and ahu7 data
+subset = [1,7];
 num = size(ahu_,1);
 ahu_tmp = [];
 ahu_list = [];
@@ -425,21 +426,21 @@ end
 fprintf('acc before correction is %.4f\n', ctr/num);
 
 %vertical comparison - kmeans
-K = 2; %num of topics
+K = 3; %num of topics
 N = 2; %num of states for KF output
 c_idx = kmeans(vav_sub', K);
 assert(length(c_idx) == size(vav_sub,2));
 %visualize
-[c,i] = sort(c_idx);
+[c,idx] = sort(c_idx);
 figure
-imagesc(vav_sub(:,i))
+imagesc(vav_sub(:,idx))
 
 %horizontal comparison - MLE
-num = size(vav_sub,1);
 TH = 0.7;
 vav_sub_updated = vav_sub;
 num_updated = zeros(size(vav_sub_updated,1),1);
-assert ( isequal(vav_sub_updated, vav_sub) );
+assert( isequal(vav_sub_updated, vav_sub) );
+distribution = zeros(num, K*N);
 for m = 1:num
     ctr = 0;
     vav_cur = vav_sub(m,:);
@@ -453,6 +454,7 @@ for m = 1:num
         assert( sum(p_tmp) == length(z_tmp) );
         p_tmp = p_tmp/sum(p_tmp); %p(z|topic=k)
         [~, Z] = max(p_tmp);
+        distribution(m,(k-1)*N+1:k*N) = p_tmp;
         
         %updating based on p(z|topic)
         for i = 1:length(vav_sub_updated(m,:))
@@ -468,7 +470,8 @@ for m = 1:num
     num_updated(m) = ctr;
 end
 assert( isequal(num_updated, sum(vav_sub_updated~=vav_sub, 2) ) );
-
+figure
+imagesc(distribution)
 
 %acc eval
 fea_vav = vav_sub_updated;
@@ -491,3 +494,26 @@ for m = 1:num
     end
 end
 fprintf('acc after correction is %.4f\n', ctr/num);
+
+%acc eval
+fea_vav = fea_vav(:,idx(c<3));
+fea_ahu = fea_ahu(:,idx(c<3));
+ctr = 0;
+num = size(vav_sub,1);
+for m = 1:num
+    ahu_id = vav_label(m);
+    f1 = fea_vav(m,:);
+
+    vav_sim = zeros(length(ahu_tmp),1);
+    for n = 1:size(ahu_tmp,1)
+        f2 = fea_ahu(n,:);
+
+        cur_sim = dot(f1, f2)/(norm(f1)*norm(f2)); 
+        vav_sim(n) = abs(cur_sim);
+    end
+    
+    if ismember( ahu_id, ahu_list(vav_sim==max(vav_sim)) ) && length( find(vav_sim==max(vav_sim)) ) < length(vav_sim)
+        ctr = ctr + 1;
+    end
+end
+fprintf('acc after taking out random period is %.4f\n', ctr/num);
