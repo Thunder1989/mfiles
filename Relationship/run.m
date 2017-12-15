@@ -304,10 +304,23 @@ c_idx = kmeans(input,k);
 
 %% tfidf alone acc
 load('320_events.mat');
+
+ahu_list = zeros(length(ahus),1);
+num = length(ahus);
+for n = 1:num
+    fn = [path_ahu, ahus(n).name];
+    str = regexp(ahus(n).name,'[0-9]+','match');
+    ahu_list(n) = str2double(str(1));
+end
+
 ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
 vav_ = cellfun(@transpose,vav,'UniformOutput',false);
+ahu_ = cellfun(@round,ahu_,'UniformOutput',false);
+vav_ = cellfun(@round,vav_,'UniformOutput',false);
+ahu_ = cellfun(@remap_event,ahu_,'UniformOutput',false);
+vav_ = cellfun(@remap_event,vav_,'UniformOutput',false);
 
-% align vav with corresponding ahu
+% align vav with corresponding ahu, sanity check for upper bound
 num = size(vav_,1);
 for m = 1:num
     str = regexp(vavs(m).name,'[0-9]+','match');
@@ -320,19 +333,14 @@ for m = 1:num
     vav_{m} = double(f1 & f2);
 end
 
-ahu_res_ = ceil(2*cell2mat(ahu_));
-vav_res_ = ceil(2*cell2mat(vav_));
+ahu_res_ = ceil(cell2mat(ahu_));
+vav_res_ = ceil(cell2mat(vav_));
 
 fea_ahu = tfidf(ahu_res_);
 fea_vav = tfidf(vav_res_);
 
 % fea_ahu = cell2mat(ahu_);
 % fea_vav = cell2mat(vav_);
-
-% merge ahu and vav together for tf-idf
-% fea = tfidf([cell2mat(ahu_kf_res); cell2mat(vav_kf_res)]);
-% fea_ahu = fea(1:size(ahu_kf_res,1), :);
-% fea_vav = fea(size(ahu_kf_res,1)+1:end, :);
 
 ctr = 0;
 num = size(fea_vav,1);
@@ -366,8 +374,12 @@ ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
 vav_ = cellfun(@transpose,vav,'UniformOutput',false);
 ahu_conf = cell2mat(ahu_);
 vav_conf = cell2mat(vav_);
-ahu_ = round(cell2mat(ahu_));
-vav_ = round(cell2mat(vav_));
+ahu_ = cellfun(@round,ahu_,'UniformOutput',false);
+vav_ = cellfun(@round,vav_,'UniformOutput',false);
+ahu_ = cellfun(@remap_event,ahu_,'UniformOutput',false);
+vav_ = cellfun(@remap_event,vav_,'UniformOutput',false);
+ahu_ = cell2mat(ahu_);
+vav_ = cell2mat(vav_);
 
 %take ahu1 and ahu7 data
 subset = [1,7];
@@ -432,9 +444,9 @@ N = 2; %num of states for KF output
 assert(length(c_idx) == size(vav_sub,2));
 %-visualize-
 [c,idx] = sort(c_idx);
-% figure
-% imagesc(vav_sub(:,idx))
-% hold on
+figure
+imagesc(vav_sub(:,idx))
+hold on
 ts = [0; diff(c)];
 x = find(ts~=0);
 % stem(x-0.5, ones(size(x))*num+0.5, 'r','Marker','None','LineWidth',4)
