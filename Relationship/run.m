@@ -411,7 +411,7 @@ for m = 1:num
     ahu_id = vav_label(m);
     f1 = fea_vav(m,:);
 
-    vav_sim = zeros(length(ahu_tmp),1);
+    vav_sim = zeros(size(ahu_tmp,1),1);
     for n = 1:size(ahu_tmp,1)
         f2 = fea_ahu(n,:);
 
@@ -426,19 +426,26 @@ end
 fprintf('acc before correction is %.4f\n', ctr/num);
 
 %vertical comparison - kmeans
-K = 4; %num of topics
+K = 3; %num of topics
 N = 2; %num of states for KF output
 [c_idx,~,~,D] = kmeans(vav_sub', K);
 assert(length(c_idx) == size(vav_sub,2));
-%visualize
+%-visualize-
 [c,idx] = sort(c_idx);
-figure
-imagesc(vav_sub(:,idx))
+% figure
+% imagesc(vav_sub(:,idx))
+% hold on
+ts = [0; diff(c)];
+x = find(ts~=0);
+% stem(x-0.5, ones(size(x))*num+0.5, 'r','Marker','None','LineWidth',4)
+
 D = min(D,2);
 tmp = [c_idx, D];
 [tmp,idx_] = sortrows(tmp);
 figure
-imagesc(vav_sub(:,idx_));
+imagesc(vav_sub(:,idx_))
+hold on
+stem(x-0.5, ones(size(x))*num+0.5, 'r','Marker','None','LineWidth',4)
 
 %horizontal comparison - MLE
 TH = 0.7;
@@ -485,7 +492,7 @@ for m = 1:num
     ahu_id = vav_label(m);
     f1 = fea_vav(m,:);
 
-    vav_sim = zeros(length(ahu_tmp),1);
+    vav_sim = zeros(size(ahu_tmp,1),1);
     for n = 1:size(ahu_tmp,1)
         f2 = fea_ahu(n,:);
 
@@ -500,14 +507,16 @@ end
 fprintf('acc after correction is %.4f\n', ctr/num);
 
 %acc eval
-fea_vav = fea_vav(:,idx_(c<K-1));
-fea_ahu = fea_ahu(:,idx_(c<K-1));
+fea_vav = fea_vav(:,idx(c<K)); %reordered by cluster id
+fea_ahu = fea_ahu(:,idx(c<K));
+% fea_vav = fea_vav(:,c~=K); %keep the original order
+% fea_ahu = fea_ahu(:,c~=K);
 ctr = 0;
 for m = 1:num
     ahu_id = vav_label(m);
     f1 = fea_vav(m,:);
 
-    vav_sim = zeros(length(ahu_tmp),1);
+    vav_sim = zeros(size(ahu_tmp,1),1);
     for n = 1:size(ahu_tmp,1)
         f2 = fea_ahu(n,:);
 
