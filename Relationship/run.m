@@ -305,12 +305,17 @@ c_idx = kmeans(input,k);
 %% tfidf alone acc
 load('320_events.mat');
 
-ahu_list = zeros(length(ahus),1);
 num = length(ahus);
+ahu_list = zeros(num,1);
 for n = 1:num
-    fn = [path_ahu, ahus(n).name];
     str = regexp(ahus(n).name,'[0-9]+','match');
     ahu_list(n) = str2double(str(1));
+end
+num = size(vav_,1);
+vav_list = zeros(num,1);
+for m = 1:num
+    str = regexp(vavs(m).name,'[0-9]+','match');
+    vav_list(m) = str2double(str(1));
 end
 
 ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
@@ -320,34 +325,9 @@ vav_ = cellfun(@round,vav_,'UniformOutput',false);
 ahu_ = cellfun(@remap_event,ahu_,'UniformOutput',false);
 vav_ = cellfun(@remap_event,vav_,'UniformOutput',false);
 
-%ahu masks
-% figure
-% num = size(ahu_,1);
-% for i =1:num
-%     subplot(num,1,i)
-%     plot(ahu_{i})
-% end
 
-%align vav with corresponding ahu, sanity check for upper bound
-% num = size(vav_,1);
-% for m = 111:111
-%     str = regexp(vavs(m).name,'[0-9]+','match');
-%     ahu_id = str2double(str(1));
-%     idx = find(ahu_list == ahu_id);
-%     f1 = vav_{m};
-% 
-%     f2 = ahu_{idx};
-%     f2 = f2 | [false f2(1:end-1)];
-%     vav_{m} = double(f1 & f2);
-%     figure
-%     plot(vav_{m})
-% end
-
-% ahu_res_ = ceil(cell2mat(ahu_));
-% vav_res_ = ceil(cell2mat(vav_));
-% 
-% fea_ahu = tfidf(ahu_res_);
-% fea_vav = tfidf(vav_res_);
+% fea_ahu = tfidf( ceil(cell2mat(ahu_)) );
+% fea_vav = tfidf( ceil(cell2mat(vav_)) );
 
 fea_ahu = cell2mat(ahu_);
 fea_vav = cell2mat(vav_);
@@ -355,8 +335,8 @@ fea_vav = cell2mat(vav_);
 ctr = 0;
 num = size(fea_vav,1);
 for m = 1:num
-    str = regexp(vavs(m).name,'[0-9]+','match');
-    ahu_id = str2double(str(1));
+
+    ahu_id = vav_list(m);
     f1 = fea_vav(m,:);
 
     vav_sim = zeros(length(ahus),1);
