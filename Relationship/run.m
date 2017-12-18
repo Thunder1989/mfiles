@@ -320,9 +320,17 @@ vav_ = cellfun(@round,vav_,'UniformOutput',false);
 ahu_ = cellfun(@remap_event,ahu_,'UniformOutput',false);
 vav_ = cellfun(@remap_event,vav_,'UniformOutput',false);
 
-% align vav with corresponding ahu, sanity check for upper bound
+%ahu masks
+% figure
+% num = size(ahu_,1);
+% for i =1:num
+%     subplot(num,1,i)
+%     plot(ahu_{i})
+% end
+
+%align vav with corresponding ahu, sanity check for upper bound
 % num = size(vav_,1);
-% for m = 1:num
+% for m = 111:111
 %     str = regexp(vavs(m).name,'[0-9]+','match');
 %     ahu_id = str2double(str(1));
 %     idx = find(ahu_list == ahu_id);
@@ -331,6 +339,8 @@ vav_ = cellfun(@remap_event,vav_,'UniformOutput',false);
 %     f2 = ahu_{idx};
 %     f2 = f2 | [false f2(1:end-1)];
 %     vav_{m} = double(f1 & f2);
+%     figure
+%     plot(vav_{m})
 % end
 
 % ahu_res_ = ceil(cell2mat(ahu_));
