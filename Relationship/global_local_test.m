@@ -1,7 +1,11 @@
 % global-local check
-% close all
+close all
 clc
 load('320_events.mat');
+
+K = 6; %num of topics
+N = 2; %num of states in KF output
+
 ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
 vav_ = cellfun(@transpose,vav,'UniformOutput',false);
 ahu_conf = cell2mat(ahu_);
@@ -12,6 +16,13 @@ ahu_ = cellfun(@remap_event,ahu_,'UniformOutput',false);
 vav_ = cellfun(@remap_event,vav_,'UniformOutput',false);
 ahu_ = cell2mat(ahu_);
 vav_ = cell2mat(vav_);
+
+num = size(vav_,1);
+vav_list = zeros(num,1);
+for m = 1:num
+    str = regexp(vavs(m).name,'[0-9]+','match');
+    vav_list(m) = str2double(str(1));
+end
 
 
 %take ahu1 and ahu7 data
@@ -33,8 +44,7 @@ vav_sub = [];
 vav_label = [];
 vav_conf_sub = [];
 for m = 1:num
-    str = regexp(vavs(m).name,'[0-9]+','match');
-    ahu_id = str2double(str(1));
+    ahu_id = vav_list(m);
     if ismember(ahu_id, subset)
         vav_sub = [vav_sub; vav_(m,:)];
         vav_conf_sub = [vav_conf_sub; vav_conf(m,:)];
@@ -71,14 +81,12 @@ fprintf('acc before correction is %.4f\n', ctr/num);
 
 
 %vertical comparison - kmeans
-K = 4; %num of topics
-N = 2; %num of states in KF output
 [c_idx,~,~,D] = kmeans(vav_sub', K);
 assert(length(c_idx) == size(vav_sub,2));
 
 %-visualize-
-figure
-imagesc(vav_sub)
+% figure
+% imagesc(vav_sub)
 [c,idx] = sort(c_idx);
 ts = [0; diff(c)];
 x = find(ts~=0);
@@ -90,13 +98,23 @@ x = find(ts~=0);
 D = min(D,[],2);
 tmp = [c_idx, D];
 [tmp,idx_] = sortrows(tmp); %sort cols in each cluster
-figure
-imagesc(vav_sub(:,idx_))
-hold on
-stem(x-0.5, ones(size(x))*num+0.5, 'r','Marker','None','LineWidth',4)
+% figure
+% hold on
+% imagesc(vav_sub(:,idx_))
+% stem(x-0.5, ones(size(x))*num+0.5, 'r','Marker','None','LineWidth',4)
 
+for i = 1:length(subset)
+    figure
+    hold on
+    vav_tmp = vav_sub(vav_label==subset(i),:);
+    d = bsxfun(@minus, vav_tmp, ahu_tmp(i,:));
+    d = sqrt( sum(d.^2, 2) );
+    [d, row_idx] = sort(d);
+    imagesc( [ahu_tmp(i, idx_); vav_tmp(row_idx, idx_)] )
+    stem(x-0.5, ones(size(x))*(size(vav_tmp,1)+1)+0.5, 'r','Marker','None','LineWidth',4)
+end
 
-%horizontal comparison and udpating z - MLE
+%% horizontal comparison and udpating z - MLE
 TH = 0.7;
 vav_sub_updated = vav_sub;
 num_updated = zeros(size(vav_sub_updated,1),1);

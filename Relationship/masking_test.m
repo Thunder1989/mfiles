@@ -53,11 +53,11 @@ for m = 1:num
         for k = 1:length(ahus)
             f2 = fea_ahu(k,:);
             cur_sim = dot(vav_tmp, f2)/(norm(vav_tmp)*norm(f2)); 
-            vav_sim(n,k) = abs(cur_sim);       
+            vav_sim(n, k) = abs(cur_sim);       
         end
     end
     
-    if ismember( ahu_id, ahu_list_copy( vav_sim==max(max(vav_sim)) ) ) && length( find(vav_sim==max(max(vav_sim))) ) < length(vav_sim)
+    if ismember( ahu_id, ahu_list_copy( vav_sim==max(max(vav_sim)) ) ) && length( find(vav_sim==max(max(vav_sim))) )==1
         ctr = ctr + 1;
     end
         
