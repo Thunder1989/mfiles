@@ -20,12 +20,12 @@ for m = 1:num
 end
 
 %ahu masks
-% figure
-% num = size(ahu_,1);
-% for i =1:num
-%     subplot(num,1,i)
-%     plot(ahu_{i})
-% end
+figure
+num = size(ahu_,1);
+for i =1:num
+    subplot(num,1,i)
+    plot(ahu_{i})
+end
 
 ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
 vav_ = cellfun(@transpose,vav,'UniformOutput',false);
