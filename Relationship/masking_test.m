@@ -1,13 +1,18 @@
 %% multi-masking using each ahu for each vav
 load('320_events.mat');
 
+path_ahu = './data_ahu/';
+path_vav = './data_vav/';
+ahus = dir(strcat(path_ahu, '*.csv'));
+vavs = dir(strcat(path_vav, '*.csv'));
+
 num = length(ahus);
 ahu_list = zeros(num,1);
 for n = 1:num
     str = regexp(ahus(n).name,'[0-9]+','match');
     ahu_list(n) = str2double(str(1));
 end
-num = size(vav_,1);
+num = size(vavs,1);
 vav_list = zeros(num,1);
 for m = 1:num
     str = regexp(vavs(m).name,'[0-9]+','match');

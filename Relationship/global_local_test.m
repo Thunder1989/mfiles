@@ -1,7 +1,13 @@
 % global-local check
-close all
+% close all
 clc
+
 load('320_events.mat');
+
+path_ahu = './data_ahu/';
+path_vav = './data_vav/';
+ahus = dir(strcat(path_ahu, '*.csv'));
+vavs = dir(strcat(path_vav, '*.csv'));
 
 K = 6; %num of topics
 N = 2; %num of states in KF output
@@ -99,19 +105,19 @@ D = min(D,[],2);
 tmp = [c_idx, D];
 [tmp,idx_] = sortrows(tmp); %sort cols in each cluster
 % figure
-% hold on
 % imagesc(vav_sub(:,idx_))
+% hold on
 % stem(x-0.5, ones(size(x))*num+0.5, 'r','Marker','None','LineWidth',4)
 
 for i = 1:length(subset)
     figure
-    hold on
     vav_tmp = vav_sub(vav_label==subset(i),:);
     d = bsxfun(@minus, vav_tmp, ahu_tmp(i,:));
     d = sqrt( sum(d.^2, 2) );
     [d, row_idx] = sort(d);
     imagesc( [ahu_tmp(i, idx_); vav_tmp(row_idx, idx_)] )
-    stem(x-0.5, ones(size(x))*(size(vav_tmp,1)+1)+0.5, 'r','Marker','None','LineWidth',4)
+    hold on
+    stem(x-0.5, ones(size(x))*(size(vav_tmp,1)+1)+0.5, 'r', 'Marker','None','LineWidth',3)
 end
 
 %% horizontal comparison and udpating z - MLE
