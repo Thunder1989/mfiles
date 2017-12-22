@@ -19,14 +19,6 @@ for m = 1:num
     vav_list(m) = str2double(str(1));
 end
 
-%ahu masks
-figure
-num = size(ahu_,1);
-for i =1:num
-    subplot(num,1,i)
-    plot(ahu_{i})
-end
-
 ahu_ = cellfun(@transpose,ahu,'UniformOutput',false);
 vav_ = cellfun(@transpose,vav,'UniformOutput',false);
 ahu_ = cellfun(@round,ahu_,'UniformOutput',false);
@@ -36,6 +28,14 @@ vav_ = cellfun(@remap_event,vav_,'UniformOutput',false);
 
 fea_ahu = cell2mat( ahu_ );
 fea_vav = cell2mat( vav_ );
+
+%ahu events
+figure
+num = size(ahu_,1);
+for i =1:num
+    subplot(num,1,i)
+    plot(ahu_{i})
+end
 
 %masking vav with each ahu
 num = size(fea_vav,1);
