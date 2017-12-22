@@ -32,7 +32,7 @@ end
 
 
 %take ahu1 and ahu7 data
-subset = [7,9];
+subset = [1,2,4,5,6,7,8,9];
 num = size(ahu_,1);
 ahu_tmp = [];
 ahu_list = [];
@@ -120,7 +120,8 @@ for i = 1:length(subset)
     stem(x-0.5, ones(size(x))*(size(vav_tmp,1)+1)+0.5, 'r', 'Marker','None','LineWidth',3)
 end
 
-%% horizontal comparison and udpating z - MLE
+
+%horizontal comparison and udpating z - MLE
 TH = 0.7;
 vav_sub_updated = vav_sub;
 num_updated = zeros(size(vav_sub_updated,1),1);
