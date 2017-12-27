@@ -64,13 +64,24 @@ for m = 1:num
     end
     
     assignment(m) = ahu_list_copy( vav_sim==max(max(vav_sim)) );
-    if ismember( ahu_id, ahu_list_copy( vav_sim==max(max(vav_sim)) ) ) && length( find(vav_sim==max(max(vav_sim))) )==1
+    pred = ahu_list_copy( vav_sim==max(max(vav_sim)) );
+    pred = ahu_list_copy(vav_sim == max(diag(vav_sim)));
+    assert ( max( vav_sim(mod( find(vav_sim == max(diag(vav_sim)))-1, length(ahu_list) )+1, :) ) == max(diag(vav_sim)) ); %complicated indexing, lol
+    if ismember(ahu_id, pred) && length( find(vav_sim==max(max(vav_sim))) )==1
         ctr = ctr + 1;
     end
     
 end
 
 fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
+
+%re-masking using the assigned ahu
+%for m = 1:num
+%    f1 = fea_vav(m, :);        
+%    mask = fea_ahu(ahu_list==assignment(m),:);
+%    mask = mask | [false mask(1:end-1)];
+%    fea_vav(m, :) = double(f1 & mask);
+%end
 
 %% test distribution within each groups from multi-masking
 assign_map = cell(max(assignment),1);
@@ -85,10 +96,13 @@ for i = 1:length(assign_map)
     tmp = zeros(num, num);
     
     for j = 1:num
+        
+        vav_tmp = fea_vav(cur(j),:);
         for k = 1:j-1
-            cor = corrcoef(fea_vav(cur(j),:), fea_vav(cur(k),:));
+            cor = corrcoef(vav_tmp, fea_vav(cur(k),:));
             tmp(j,k) = cor(1,2);
         end
+    
     end
     corr_map{i} = max(tmp, tmp');
 end
