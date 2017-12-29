@@ -145,7 +145,7 @@ for m = 1:num
         %updating based on p(z|topic)
         for i = 1:length(vav_sub_updated(m,:))
             conf_tmp = conf_cur(i);
-            if conf_tmp <= 0.6 && conf_tmp >= 1-TH && c_idx(i)==k
+            if conf_tmp <= TH && conf_tmp >= 1-TH && c_idx(i)==k
                 if vav_sub_updated(m,i) ~= Z-1
                     vav_sub_updated(m,i) = Z-1;
                     ctr = ctr + 1;

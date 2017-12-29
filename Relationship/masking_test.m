@@ -29,7 +29,7 @@ vav_ = cellfun(@remap_event,vav_,'UniformOutput',false);
 fea_ahu = cell2mat( ahu_ );
 fea_vav = cell2mat( vav_ );
 
-%ahu events
+%plot ahu events
 % figure
 % num = size(ahu_,1);
 % for i =1:num
@@ -76,12 +76,12 @@ end
 fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
 
 %re-masking using the assigned ahu
-%for m = 1:num
+% for m = 1:num
 %    f1 = fea_vav(m, :);        
 %    mask = fea_ahu(ahu_list==assignment(m),:);
 %    mask = mask | [false mask(1:end-1)];
 %    fea_vav(m, :) = double(f1 & mask);
-%end
+% end
 
 %% test distribution within each groups from multi-masking
 assign_map = cell(max(assignment),1);
@@ -113,6 +113,22 @@ for i = 1:length(corr_sum)
     corr_sum{i} = sortrows([ corr_sum{i}, vav_list(assign_map{i}) ]);
 end
 
+%cal intersection rate for top-k vavs in each ahu group
+k = 4;
+rate = zeros(length(assign_map),1);
+for i = 1:length(assign_map)
+    cur = assign_map{i};
+    vav_tmp = fea_vav(cur,:);
+    ctr = 0;
+    for j = 1:size(vav_tmp,2)
+        if length( unique(vav_tmp(:,j)) )==1
+            ctr = ctr + 1;
+        end
+    end
+    rate(i) = ctr / size(vav_tmp,2);
+end
+rate
+
 %% re-mask vav with the ahu assignment from multimasking
 for m = 1:num
     f1 = fea_vav(m, :);        
@@ -129,7 +145,7 @@ vav_sub = fea_vav;
 assert(length(c_idx) == size(vav_sub,2));
 
 % horizontal comparison and udpating z - MLE
-TH = 0.7;
+TH = 0.6;
 vav_sub_updated = vav_sub;
 num_updated = zeros(size(vav_sub_updated,1),1);
 assert( isequal(vav_sub_updated, vav_sub) );
@@ -152,7 +168,7 @@ for m = 1:num
         %updating based on p(z|topic)
         for i = 1:length(vav_sub_updated(m,:))
             conf_tmp = conf_cur(i);
-            if conf_tmp <= 0.6 && conf_tmp >= 1-TH && c_idx(i)==k
+            if conf_tmp <= TH && conf_tmp >= 1-TH && c_idx(i)==k
                 if vav_sub_updated(m,i) ~= Z-1
                     vav_sub_updated(m,i) = Z-1;
                     ctr = ctr + 1;
