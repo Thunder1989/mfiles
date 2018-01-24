@@ -76,20 +76,20 @@ end
 fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
 
 %re-masking using the assigned ahu
-% for m = 1:num
-%    f1 = fea_vav(m, :);        
-%    mask = fea_ahu(ahu_list==assignment(m),:);
-%    mask = mask | [false mask(1:end-1)];
-%    fea_vav(m, :) = double(f1 & mask);
-% end
+for m = 1:num
+   f1 = fea_vav(m, :);        
+   mask = fea_ahu(ahu_list==assignment(m),:);
+   mask = mask | [false mask(1:end-1)];
+   fea_vav(m, :) = double(f1 & mask);
+end
 
 %% test distribution within each groups from multi-masking
-assign_map = cell(max(assignment),1);
+assign_map = cell(max(assignment),1); %ahu:vav
 for i = 1:length(assignment)
     assign_map{assignment(i)} = [assign_map{assignment(i)} i];
 end
 
-corr_map = cell(max(assignment),1);
+corr_map = cell(max(assignment),1); %ahu: corr among vavs
 for i = 1:length(assign_map)
     cur = assign_map{i};
     num = length(cur);
@@ -107,6 +107,7 @@ for i = 1:length(assign_map)
     corr_map{i} = max(tmp, tmp');
 end
 
+%corr sum for each vav with others assigned to the same ahu
 corr_sum = cellfun(@sum, corr_map, 'UniformOutput', false);
 corr_sum = cellfun(@transpose, corr_sum, 'UniformOutput', false);
 for i = 1:length(corr_sum)
