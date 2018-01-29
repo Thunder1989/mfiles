@@ -76,15 +76,15 @@ end
 fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
 
 %re-masking using the assigned ahu
-for m = 1:num
-   f1 = fea_vav(m, :);        
-   mask = fea_ahu(ahu_list==assignment(m),:);
-   mask = mask | [false mask(1:end-1)];
-   fea_vav(m, :) = double(f1 & mask);
-end
+% for m = 1:num
+%    f1 = fea_vav(m, :);        
+%    mask = fea_ahu(ahu_list==assignment(m),:);
+%    mask = mask | [false mask(1:end-1)];
+%    fea_vav(m, :) = double(f1 & mask);
+% end
 
 %% test distribution within each groups from multi-masking
-assign_map = cell(max(assignment),1); %ahu:vav
+assign_map = cell(max(assignment),1); %ahu: vav
 for i = 1:length(assignment)
     assign_map{assignment(i)} = [assign_map{assignment(i)} i];
 end
@@ -100,7 +100,7 @@ for i = 1:length(assign_map)
         vav_tmp = fea_vav(cur(j),:);
         for k = 1:j-1
             cor = corrcoef(vav_tmp, fea_vav(cur(k),:));
-            tmp(j,k) = cor(1,2);
+            tmp(j,k) = abs(cor(1,2));
         end
     
     end
@@ -111,24 +111,91 @@ end
 corr_sum = cellfun(@sum, corr_map, 'UniformOutput', false);
 corr_sum = cellfun(@transpose, corr_sum, 'UniformOutput', false);
 for i = 1:length(corr_sum)
-    corr_sum{i} = sortrows([ corr_sum{i}, vav_list(assign_map{i}) ]);
+    corr_sum{i} = sortrows([ corr_sum{i}, vav_list(assign_map{i}), assign_map{i}' ]); %corr_score_sum, true ahu id, item id
 end
 
-%cal intersection rate for top-k vavs in each ahu group
+%% check the corr with vavs in other groups for low-ranked vav
+corr_other = cell(length(corr_sum),1);
+for i = 1:length(corr_sum)
+    if i==3
+        continue
+    end
+    cur_vav = corr_sum{i};
+    cur_vav = cur_vav(1,3);
+    vav_tmp = fea_vav(cur_vav,:);
+
+    tmp = zeros(length(assign_map),1);
+    for j = 1:length(assign_map)
+        cur = assign_map{j};
+        for k = 1:length(cur)
+            if cur(k)==cur_vav
+                continue;
+            end
+            cor = corrcoef(vav_tmp, fea_vav(cur(k),:));
+            tmp(j) = tmp(j) + abs(cor(1,2));
+        end
+    end
+    corr_other{i} = tmp;
+end
+
+%% reserve the intersection segment in ahu by top-k vavs in each ahu group
 k = 4;
 rate = zeros(length(assign_map),1);
 for i = 1:length(assign_map)
     cur = assign_map{i};
     vav_tmp = fea_vav(cur,:);
     ctr = 0;
+    ctr1 = 0;
     for j = 1:size(vav_tmp,2)
         if length( unique(vav_tmp(:,j)) )==1
             ctr = ctr + 1;
+        else
+            if fea_ahu(i,j) ~= 0
+                ctr1 = ctr1 + 1;
+            end
+            fea_ahu(i,j) = 0;
         end
     end
+    ctr1 / size(vav_tmp,2)
     rate(i) = ctr / size(vav_tmp,2);
 end
-rate
+
+num = size(fea_vav,1);
+ctr = 0;
+ahu_list_copy = repmat(ahu_list, 1, length(ahu_list));
+assignment = zeros(size(fea_vav,1),1);
+for m = 1:num
+    ahu_id = vav_list(m);
+    idx = find(ahu_list == ahu_id);
+    f1 = fea_vav(m, :);
+
+    vav_sim = zeros(length(ahu_list), length(ahu_list));
+    for n = 1:length(ahu_list)
+%         if n ~= idx
+%             continue
+%         end
+        
+        mask = fea_ahu(n,:);
+        mask = mask | [false mask(1:end-1)];
+        vav_tmp = double(f1 & mask);
+        for k = 1:length(ahus)
+            f2 = fea_ahu(k,:);
+            cur_sim = dot(vav_tmp, f2)/(norm(vav_tmp)*norm(f2)); 
+            vav_sim(n, k) = abs(cur_sim);       
+        end
+    end
+    
+    assignment(m) = ahu_list_copy( vav_sim==max(max(vav_sim)) );
+    pred = ahu_list_copy( vav_sim==max(max(vav_sim)) );
+    pred = ahu_list_copy(vav_sim == max(diag(vav_sim)));
+    assert ( max( vav_sim(mod( find(vav_sim == max(diag(vav_sim)))-1, length(ahu_list) )+1, :) ) == max(diag(vav_sim)) ); %complicated indexing, lol
+    if ismember(ahu_id, pred) && length( find(vav_sim==max(max(vav_sim))) )==1
+        ctr = ctr + 1;
+    end
+    
+end
+
+fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
 
 %% re-mask vav with the ahu assignment from multimasking
 for m = 1:num
