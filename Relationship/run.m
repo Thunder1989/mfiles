@@ -154,14 +154,14 @@ event_ahu = cell(num,1);
 N0_ahu = cell(num,1);
 NE_ahu = cell(num,1);
 % figure
-for n = 2:2
+for n = 110:110
     fn = [path_vav, vavs(n).name];
     cur_ahu = csvread(fn,1); %skip the 1st row, which is the headers
     cur_ahu = cur_ahu(1:4*24*T,:);
     cur_ahu = cur_ahu(:,1); %ahu last col, vav 1st col
     tic
-    [res, Z, M] = gibbs_sgf_K(cur_ahu, 2, 1, 0);
-%     [res, Z, M] = gibbs_sgf_K_para(cur_ahu, 2, 1, 0);
+%     [res, Z, M] = gibbs_sgf_K_old(cur_ahu, 2, 1, 0);
+    [res, Z, M] = gibbs_sgf(cur_ahu, 1, 0);
     toc
 
 %     figure
