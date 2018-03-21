@@ -1,5 +1,5 @@
 function reading = remap_event(input)
-
+    %remap event sequence to make 1 for events, 0 for non-events
     input = input(:);
     
     num_zero = sum(input == 0);
