@@ -11,8 +11,8 @@ function [Y,Z,M,Q,R] = gibbs_sgf_Ks_simu(Q_ahu, R_ahu, Ks, F_switch)
     F = [1 1; 0 1];
     H = [1 0; 0 1];
     
-    Q_star = Q_ahu{2};
-    R_star = R_ahu{2};
+    Q_star = Q_ahu{2}';
+    R_star = R_ahu{2}';
     
     Z_star = zeros(sum(len),1);
     Z_star(11:10:end) = 1;
@@ -181,8 +181,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_Ks_simu(Q_ahu, R_ahu, Ks, F_switch)
         end
         
 %         Z = mean(Z_sample(:,end-20:end),2);
-        Z = Z_sample;
-        
+        Z = Z_sample;      
         
         %calculate errors
         Z = mode(Z(:,11:2:end),2);
@@ -209,7 +208,7 @@ function [Y,Z,M,Q,R] = gibbs_sgf_Ks_simu(Q_ahu, R_ahu, Ks, F_switch)
             end
         end
         
-        M = get_M(Z(:), Ks);
+        M = get_M(Z(:)+1, Ks); %convers to 1:Ks, rather than 0,1
         for i = 1:Ks
             if F_switch
                 if i==non_event_idx
@@ -219,10 +218,10 @@ function [Y,Z,M,Q,R] = gibbs_sgf_Ks_simu(Q_ahu, R_ahu, Ks, F_switch)
                 end
             end
             [Q{i}, R{i}] = get_Q_R(i,X,Y,Z,F,H);
-        end
-    
+        end    
     
     end
+    
     data = X(:,1);
     res = Y;
     Z = mode(Z(:,11:2:end),2);
@@ -269,9 +268,10 @@ function [Q, R] = get_Q_R(i,X,Y,Z_sample,F,H)
     R = R/ctr;
 
 
-function M = get_M(Z_sample,K) %K-class transition matrix, each col sums to 1
-    M = zeros(K);
-    N = zeros(K,1);
+function M = get_M(Z_sample,K) %K-class transition matrix, each col sums to 1, checked
+    
+    M = zeros(K); % # of transitions i-j
+    N = zeros(K,1); % # of i
     for n = 1:size(Z_sample,2)
         Z = Z_sample(:,n);
         for i = 1:K
@@ -280,9 +280,11 @@ function M = get_M(Z_sample,K) %K-class transition matrix, each col sums to 1
                 N_ij = length(find(Z(1:end-1)==i & Z(2:end)==j)); 
                 M(i,j) = M(i,j) + N_ij;
             end
-        end 
+        end
     end
+    
     assert (sum(N) == numel(Z_sample) - size(Z_sample,2));
+
     M = bsxfun(@rdivide,M,N)';
     
 
