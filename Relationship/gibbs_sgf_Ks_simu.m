@@ -206,7 +206,9 @@ for iter = 1:2
         end
     end
 
-    M = get_M(Z(:)+1, Ks); %atn: Z
+    Z = Z+1; %atn: Z
+    
+    M = get_M(Z(:), Ks); %atn: Z
     for i = 1:Ks
         if F_switch
             if i==non_event_idx
@@ -215,14 +217,14 @@ for iter = 1:2
                 F = F_{2};
             end
         end
-        [Q{i}, R{i}] = get_Q_R(i,X,Y,Z+1,F,H); %atn: Z
-    end    
-
+        [Q{i}, R{i}] = get_Q_R(i,X,Y,Z,F,H); %atn: Z
+    end
+    
 end
 
 data = X(:,1);
 res = Y;
-Z = remap_event(Z);
+Z = remap_event(Z-1);
 figure
 hold on
 yyaxis left
