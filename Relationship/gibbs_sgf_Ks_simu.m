@@ -1,6 +1,7 @@
 clc
 load('320_output.mat')
 
+tic
 %----generate data----
 rep = 20;
 len = repmat(10,1,rep);
@@ -93,7 +94,12 @@ for iter = 1:2
                 end
 
                 for i = 1:length(p_tmp)
-                    p_tmp(i) = M( i, Z_sample(t-1,n) ) * M( Z_sample(t+1,n-1), i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i}); %* mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
+                    try
+                        p_tmp(i) = M( i, Z_sample(t-1,n) ) * M( Z_sample(t+1,n-1), i ) * mvnpdf(X(t,:)', H*Y(t,:)', R{i}); %* mvnpdf(Y(t,:)', F*Y(t-1,:)', Q{i});
+                    catch
+                        fprintf('z sampling error!\n');
+                        p_tmp(i) = randi(Ks);
+                    end
                 end
                 p_tmp = p_tmp/sum(p_tmp);
                 Z_sample(t,n) = find(cumsum(p_tmp) >= rand(1), 1);
@@ -237,3 +243,13 @@ plot(1:length(res), data, 'k--', 'LineWidth', 1.5)
 yyaxis right
 %velocity
 plot(1:length(res), res(:,2), 'r-','LineWidth', 2)
+
+figure
+subplot(3,1,1)
+plot(Z_err, 'k--o', 'LineWidth', 1.5, 'MarkerSize', 8)
+subplot(3,1,2)
+plot(Q_err, 'k--o', 'LineWidth', 1.5, 'MarkerSize', 8)
+subplot(3,1,3)
+plot(R_err, 'k--o', 'LineWidth', 1.5, 'MarkerSize', 8)
+    
+toc
