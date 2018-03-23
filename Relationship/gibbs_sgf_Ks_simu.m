@@ -1,7 +1,8 @@
 clc
-load('320_output.mat')
-
 tic
+
+load('320_output.mat') %load the Q R from previous experiments
+
 %----generate data----
 rep = 20;
 len = repmat(10,1,rep);
@@ -23,7 +24,7 @@ y_prev = rand*100; %initial Y_0
 Y = [];
 X = [];
 
-%eq: Y = N(FY,Q), X = N(HX,R)
+%Y ~ N(FY,Q), X ~ N(HX,R)
 for i = 1:length(len)
     count = len(i);
     for t = 1:count
@@ -72,7 +73,8 @@ N = 100; % samples per iter
 p_data = zeros(K,1);
 Z_sample = repmat(Z,1,N);
 p_tmp = zeros(Ks,1);
-for iter = 1:2
+
+for iter = 1:10
     fprintf('----iter #%d----\n',iter);
 
     %------EM------
@@ -163,7 +165,8 @@ for iter = 1:2
 %                         + log( mvnpdf(X(t,:), Y_sample(t,:,n)*H', R) );
 %                 end
 %                 p_tmp(n) = p;
-            end
+            
+            end          
         end
         p_data(k) = mean(p_tmp);
 
@@ -184,7 +187,6 @@ for iter = 1:2
         end
 
     end
-
 %         Z = mean(Z_sample(:,end-20:end),2);
     Z = Z_sample;      
 
@@ -192,7 +194,8 @@ for iter = 1:2
     Z = mode(Z(:,11:2:end),2) - 1; %atn: Z
 
     assert( length(Z) == length(Z_star) );
-    Z_err = [Z_err sum(abs(Z - Z_star))/length(Z)];
+    Z_ = remap_event(Z); %atn: Z
+    Z_err = [Z_err sum(abs(Z_ - Z_star))/length(Z_)];
 
     tmp = cellfun(@minus, Q, Q_star, 'UniformOutput', false);
     tmp = cellfun(@abs, tmp, 'UniformOutput', false);
@@ -204,7 +207,6 @@ for iter = 1:2
     tmp = cell2mat( cellfun(@(x) sum(x(:)), tmp, 'UniformOutput', false) );
     R_err = [R_err; tmp(:)'];
 
-    Z_ = remap_event(Z);
     flip = ~isequal(Z, Z_);
     for i = 1:length(Z)
         if rand>=0.2
@@ -212,8 +214,7 @@ for iter = 1:2
         end
     end
 
-    Z = Z+1; %atn: Z
-    
+    Z = Z + 1; %atn: Z
     M = get_M(Z(:), Ks); %atn: Z
     for i = 1:Ks
         if F_switch
