@@ -198,15 +198,14 @@ for iter = 1:10
     Z_err = [Z_err sum(abs(Z_ - Z_star))/length(Z_)];
 
     tmp = cellfun(@minus, Q, Q_star, 'UniformOutput', false);
-    tmp = cellfun(@abs, tmp, 'UniformOutput', false);
-    tmp = cell2mat( cellfun(@(x) sum(x(:)), tmp, 'UniformOutput', false) );
+    tmp = cell2mat( cellfun(@(x) sum(abs(x(:))), tmp, 'UniformOutput', false) );
     Q_err = [Q_err; tmp(:)'];
 
     tmp = cellfun(@minus, R, R_star, 'UniformOutput', false);
-    tmp = cellfun(@abs, tmp, 'UniformOutput', false);
-    tmp = cell2mat( cellfun(@(x) sum(x(:)), tmp, 'UniformOutput', false) );
+    tmp = cell2mat( cellfun(@(x) sum(abs(x(:))), tmp, 'UniformOutput', false) );
     R_err = [R_err; tmp(:)'];
 
+    %correction@random positions
     flip = ~isequal(Z, Z_);
     for i = 1:length(Z)
         if rand>=0.2
