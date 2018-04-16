@@ -4,7 +4,7 @@ tic
 load('320_output.mat') %load the Q R from previous experiments
 
 %----generate data----
-rep = 20;
+rep = 60;
 len = repmat(10,1,rep);
 vel = repmat([0 30 -30 0],1,rep/4);
 state = repmat([1 2 2 1],1,rep/4);
@@ -84,6 +84,11 @@ for iter = 1:10
         %---E step---
         non_event_idx = get_non_event_i(Q);
 
+%         if iter>1
+%             Q = Q_star;
+%             R = R_star;
+%         end
+        
         %sample Z
         for n = 2:N
             for t = 2:length(Z)-1
