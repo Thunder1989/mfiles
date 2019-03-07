@@ -1,4 +1,5 @@
 %% multi-masking using each ahu for each vav
+
 load('320_events.mat');
 
 path_ahu = './data_ahu/';
@@ -33,8 +34,14 @@ fea_vav = cell2mat( vav_ );
 % figure
 % num = size(ahu_,1);
 % for i =1:num
+% fn = [path_ahu, ahus(i).name];
+%     raw = csvread(fn,1);
+%     raw = raw(1:4*24*28,end);
 %     subplot(num,1,i)
-%     plot(ahu_{i})
+%     hold on
+%     plot(raw)
+%     stem(ahu_{i} * max(raw), 'r', 'Marker','None')
+%     ylim([min(raw) max(raw) ])
 % end
 
 %masking vav with each ahu
@@ -47,7 +54,7 @@ for m = 1:num
     idx = find(ahu_list == ahu_id);
     f1 = fea_vav(m, :);
 
-    vav_sim = zeros(length(ahu_list), length(ahu_list));
+    vav_sim = zeros( length(ahu_list) );
     for n = 1:length(ahu_list)
 %         if n ~= idx
 %             continue
@@ -56,6 +63,8 @@ for m = 1:num
         mask = fea_ahu(n,:);
         mask = mask | [false mask(1:end-1)];
         vav_tmp = double(f1 & mask);
+        
+%         vav_tmp = f1; %no masking
         for k = 1:length(ahus)
             f2 = fea_ahu(k,:);
             cur_sim = dot(vav_tmp, f2)/(norm(vav_tmp)*norm(f2)); 
@@ -64,8 +73,11 @@ for m = 1:num
     end
     
     assignment(m) = ahu_list_copy( vav_sim==max(max(vav_sim)) );
+%     assignment(m) = ahu_list( vav_sim(1,:)==max(max(vav_sim)) ); %for no masking
+%     pred = assignment(m);
     pred = ahu_list_copy( vav_sim==max(max(vav_sim)) );
-    pred = ahu_list_copy(vav_sim == max(diag(vav_sim)));
+%     pred1 = ahu_list_copy(vav_sim == max(diag(vav_sim)));
+%     assert(pred == pred1);
     assert ( max( vav_sim(mod( find(vav_sim == max(diag(vav_sim)))-1, length(ahu_list) )+1, :) ) == max(diag(vav_sim)) ); %complicated indexing, lol
     if ismember(ahu_id, pred) && length( find(vav_sim==max(max(vav_sim))) )==1
         ctr = ctr + 1;
@@ -75,7 +87,7 @@ end
 
 fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
 
-%re-masking using the assigned ahu
+%masking the vav events using the assigned ahu
 % for m = 1:num
 %    f1 = fea_vav(m, :);        
 %    mask = fea_ahu(ahu_list==assignment(m),:);
@@ -89,12 +101,12 @@ for i = 1:length(assignment)
     assign_map{assignment(i)} = [assign_map{assignment(i)} i];
 end
 
-corr_map = cell(max(assignment),1); %ahu: corr among vavs
+corr_map = cell(max(assignment),1); %ahu: corr among its vavs
 for i = 1:length(assign_map)
-    cur = assign_map{i};
+    cur = assign_map{i}; %list of vavs assigned to the ahu
+  
     num = length(cur);
     tmp = zeros(num, num);
-    
     for j = 1:num
         
         vav_tmp = fea_vav(cur(j),:);
@@ -111,17 +123,19 @@ end
 corr_sum = cellfun(@sum, corr_map, 'UniformOutput', false);
 corr_sum = cellfun(@transpose, corr_sum, 'UniformOutput', false);
 for i = 1:length(corr_sum)
-    corr_sum{i} = sortrows([ corr_sum{i}, vav_list(assign_map{i}), assign_map{i}' ]); %corr_score_sum, true ahu id, item id
+    %corr_score_sum, true ahu id, assigned ahu id, item id
+    corr_sum{i} = sortrows([ corr_sum{i}, vav_list(assign_map{i}), assignment(assign_map{i}), assign_map{i}' ]); 
 end
 
-%% check the corr with vavs in other groups for low-ranked vav
-corr_other = cell(length(corr_sum),1);
+%% compute the corr with vavs in other groups for vav with lowest corr_sum in each ahu
+corr_other = cell(length(corr_sum),2);
 for i = 1:length(corr_sum)
     if i==3
         continue
     end
     cur_vav = corr_sum{i};
-    cur_vav = cur_vav(1,3);
+    corr_other{i,2} = [cur_vav(1,2), cur_vav(1,3)];
+    cur_vav = cur_vav(1,end); %the least confident vav
     vav_tmp = fea_vav(cur_vav,:);
 
     tmp = zeros(length(assign_map),1);
@@ -135,29 +149,36 @@ for i = 1:length(corr_sum)
             tmp(j) = tmp(j) + abs(cor(1,2));
         end
     end
-    corr_other{i} = tmp;
+    corr_other{i,1} = tmp;
 end
 
 %% reserve the intersection segment in ahu by top-k vavs in each ahu group
 k = 4;
-rate = zeros(length(assign_map),1);
+consensus_rate = zeros(length(assign_map),1);
+change_rate = zeros(length(assign_map),1);
+id = 1;
 for i = 1:length(assign_map)
     cur = assign_map{i};
-    vav_tmp = fea_vav(cur,:);
+    if isempty(cur)
+        continue
+    end
+    vav_tmp = fea_vav(id,:);
+    id = id + 1;
+
     ctr = 0;
     ctr1 = 0;
     for j = 1:size(vav_tmp,2)
         if length( unique(vav_tmp(:,j)) )==1
-            ctr = ctr + 1;
+            ctr = ctr + 1; % # of timestamps that consensed
         else
             if fea_ahu(i,j) ~= 0
-                ctr1 = ctr1 + 1;
+                ctr1 = ctr1 + 1; % # of changes made
             end
             fea_ahu(i,j) = 0;
         end
     end
-    ctr1 / size(vav_tmp,2)
-    rate(i) = ctr / size(vav_tmp,2);
+    change_rate(i) = ctr1 / size(vav_tmp,2);
+    consensus_rate(i) = ctr / size(vav_tmp,2);
 end
 
 num = size(fea_vav,1);
@@ -187,7 +208,7 @@ for m = 1:num
     
     assignment(m) = ahu_list_copy( vav_sim==max(max(vav_sim)) );
     pred = ahu_list_copy( vav_sim==max(max(vav_sim)) );
-    pred = ahu_list_copy(vav_sim == max(diag(vav_sim)));
+%     pred = ahu_list_copy(vav_sim == max(diag(vav_sim)));
     assert ( max( vav_sim(mod( find(vav_sim == max(diag(vav_sim)))-1, length(ahu_list) )+1, :) ) == max(diag(vav_sim)) ); %complicated indexing, lol
     if ismember(ahu_id, pred) && length( find(vav_sim==max(max(vav_sim))) )==1
         ctr = ctr + 1;
@@ -197,7 +218,7 @@ end
 
 fprintf('acc on tfidf cossim is %.4f\n', ctr/num);
 
-%% re-mask vav with the ahu assignment from multimasking
+%% mask vav with the ahu assignment from multimasking
 for m = 1:num
     f1 = fea_vav(m, :);        
     mask = fea_ahu(ahu_list==assignment(m),:);
